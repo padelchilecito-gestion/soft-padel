@@ -1,0 +1,5 @@
+{
+  "name": "Padel Club Manager",
+  "description": "Una aplicación PWA integral para la gestión de clubes de pádel, incluyendo reservas, POS, caja y administración.",
+  "requestFramePermissions": []
+}
