@@ -3,6 +3,7 @@ import { collection, doc, setDoc, addDoc, updateDoc, deleteDoc, onSnapshot, quer
 import { Booking, Product, Court, User, ActivityLogEntry, ClubConfig, BookingStatus } from '../types';
 import { MOCK_USERS, MOCK_COURTS, INITIAL_CONFIG } from '../constants';
 
+// --- COLLECTIONS ---
 const BOOKINGS_COL = 'bookings';
 const PRODUCTS_COL = 'products';
 const COURTS_COL = 'courts';
@@ -23,7 +24,6 @@ const sanitize = (data: any): any => {
     return cleanData;
 };
 
-// Convierte matriz (Arrays anidados) a Objeto para Firebase
 const serializeConfig = (config: ClubConfig) => {
     const safeConfig: any = sanitize(config);
     if (safeConfig.schedule && Array.isArray(safeConfig.schedule)) {
@@ -36,7 +36,6 @@ const serializeConfig = (config: ClubConfig) => {
     return safeConfig;
 };
 
-// Restaura Objeto a Matriz para la App
 const deserializeConfig = (data: any): ClubConfig => {
     const config = { ...data } as ClubConfig;
     if (config.schedule && !Array.isArray(config.schedule)) {
@@ -50,9 +49,28 @@ const deserializeConfig = (data: any): ClubConfig => {
     return config;
 };
 
-// --- SERVICIOS ---
-export const subscribeBookings = (callback: (data: Booking[]) => void) => {
-    return onSnapshot(query(collection(db, BOOKINGS_COL)), (s) => callback(s.docs.map(d => ({ id: d.id, ...d.data() } as Booking))));
+// --- BOOKINGS (MODIFICADO PARA DETECTAR NUEVAS) ---
+export const subscribeBookings = (
+    callback: (data: Booking[]) => void, 
+    onNewBooking?: (booking: Booking) => void
+) => {
+    const q = query(collection(db, BOOKINGS_COL));
+    let isFirstLoad = true;
+
+    return onSnapshot(q, (snapshot) => {
+        const bookings = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Booking));
+        callback(bookings);
+
+        // Detectar cambios (nuevas reservas) después de la carga inicial
+        if (!isFirstLoad && onNewBooking) {
+            snapshot.docChanges().forEach((change) => {
+                if (change.type === 'added') {
+                    onNewBooking({ id: change.doc.id, ...change.doc.data() } as Booking);
+                }
+            });
+        }
+        isFirstLoad = false;
+    });
 };
 
 export const addBooking = async (booking: Booking) => {
@@ -69,6 +87,7 @@ export const updateBooking = async (b: Booking) => updateDoc(doc(db, BOOKINGS_CO
 export const updateBookingStatus = async (id: string, status: BookingStatus) => updateDoc(doc(db, BOOKINGS_COL, id), { status });
 export const toggleBookingRecurring = async (id: string, v: boolean) => updateDoc(doc(db, BOOKINGS_COL, id), { isRecurring: !v });
 
+// --- OTROS SERVICIOS (Sin cambios mayores) ---
 export const subscribeProducts = (cb: (d: Product[]) => void) => onSnapshot(query(collection(db, PRODUCTS_COL), orderBy('name')), (s) => cb(s.docs.map(d => ({ id: d.id, ...d.data() } as Product))));
 export const addProduct = async (p: Product) => { const { id, ...r } = sanitize(p); await addDoc(collection(db, PRODUCTS_COL), r); };
 export const updateProduct = async (p: Product) => updateDoc(doc(db, PRODUCTS_COL, p.id), sanitize(p));
@@ -88,7 +107,7 @@ export const subscribeConfig = (callback: (data: ClubConfig) => void) => {
             callback(deserializeConfig(docSnap.data()));
         } else {
             const initial = serializeConfig(INITIAL_CONFIG);
-            setDoc(doc(db, CONFIG_COL, CONFIG_DOC_ID), initial); // Guarda sanitizado
+            setDoc(doc(db, CONFIG_COL, CONFIG_DOC_ID), initial);
             callback(INITIAL_CONFIG);
         }
     });
