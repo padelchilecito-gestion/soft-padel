@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Clock, Check, X, RefreshCw, Plus, CalendarDays, MapPin, Edit2, Trash2, Banknote, QrCode, CreditCard, Save, AlertCircle, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Clock, Check, X, RefreshCw, Plus, CalendarDays, MapPin, Edit2, Trash2, Banknote, QrCode, CreditCard, Save, AlertCircle, ChevronDown, ChevronLeft, ChevronRight, Copy, Share2 } from 'lucide-react';
 import { Booking, BookingStatus, ClubConfig, Court, PaymentMethod } from '../types';
 import { COLOR_THEMES } from '../constants';
 
@@ -13,7 +13,6 @@ interface BookingModuleProps {
   onAddBooking: (booking: Booking) => void;
 }
 
-// Helper seguro
 const formatMoney = (amount?: number | null) => {
     return (amount || 0).toLocaleString();
 };
@@ -25,6 +24,9 @@ export const BookingModule: React.FC<BookingModuleProps> = ({ bookings, courts, 
   const [editingBooking, setEditingBooking] = useState<Booking | null>(null);
   const [activeDropdownId, setActiveDropdownId] = useState<string | null>(null);
   
+  // Payment Modal State
+  const [paymentModal, setPaymentModal] = useState<{ isOpen: boolean, type: PaymentMethod | null, booking: Booking | null }>({ isOpen: false, type: null, booking: null });
+
   const theme = COLOR_THEMES[config.courtColorTheme];
 
   const dailyBookings = bookings
@@ -62,11 +64,40 @@ export const BookingModule: React.FC<BookingModuleProps> = ({ bookings, courts, 
       setEditingBooking(null);
   };
 
+  // --- PAYMENT LOGIC ---
   const handlePaymentSelect = (e: React.MouseEvent, booking: Booking, method?: PaymentMethod) => {
       e.stopPropagation();
-      const updatedBooking = { ...booking, paymentMethod: method };
-      onUpdateBooking(updatedBooking);
       setActiveDropdownId(null);
+
+      if (!method) {
+          // Marcar como impago (solo actualizar, no confirmar)
+          onUpdateBooking({ ...booking, paymentMethod: undefined });
+          return;
+      }
+
+      if (method === PaymentMethod.CASH) {
+          // Efectivo: Confirmar y marcar pagado inmediatamente
+          const updated = { 
+              ...booking, 
+              paymentMethod: method,
+              status: BookingStatus.CONFIRMED 
+          };
+          onUpdateBooking(updated);
+      } else {
+          // Transferencia o QR: Abrir modal de cobro
+          setPaymentModal({ isOpen: true, type: method, booking });
+      }
+  };
+
+  const handleConfirmPayment = () => {
+      if (!paymentModal.booking || !paymentModal.type) return;
+      const updated = { 
+          ...paymentModal.booking, 
+          paymentMethod: paymentModal.type,
+          status: BookingStatus.CONFIRMED 
+      };
+      onUpdateBooking(updated);
+      setPaymentModal({ isOpen: false, type: null, booking: null });
   };
 
   const getPaymentIcon = (method?: PaymentMethod) => {
@@ -88,9 +119,7 @@ export const BookingModule: React.FC<BookingModuleProps> = ({ bookings, courts, 
       {/* Control Bar */}
       <div className="bg-slate-900/90 backdrop-blur-md p-3 rounded-xl border border-white/10 shadow-lg flex flex-col sm:flex-row justify-between items-center gap-4 sticky top-0 z-30">
         <div className="flex items-center gap-2 bg-slate-800 p-1 rounded-lg border border-white/5 w-full sm:w-auto">
-             <button onClick={() => handleDateChange(-1)} className="p-2 hover:bg-white/10 rounded-lg text-slate-400 hover:text-white transition-colors">
-                 <ChevronLeft size={20}/>
-             </button>
+             <button onClick={() => handleDateChange(-1)} className="p-2 hover:bg-white/10 rounded-lg text-slate-400 hover:text-white transition-colors"><ChevronLeft size={20}/></button>
              <div className="flex-1 text-center px-6">
                  <div className="text-xs text-slate-400 uppercase font-bold tracking-wider mb-0.5">Viendo reservas del</div>
                  <div className="relative">
@@ -102,16 +131,11 @@ export const BookingModule: React.FC<BookingModuleProps> = ({ bookings, courts, 
                     />
                  </div>
              </div>
-             <button onClick={() => handleDateChange(1)} className="p-2 hover:bg-white/10 rounded-lg text-slate-400 hover:text-white transition-colors">
-                 <ChevronRight size={20}/>
-             </button>
+             <button onClick={() => handleDateChange(1)} className="p-2 hover:bg-white/10 rounded-lg text-slate-400 hover:text-white transition-colors"><ChevronRight size={20}/></button>
         </div>
 
         <div className="flex gap-2 w-full sm:w-auto">
-             <button 
-                onClick={() => { setEditingBooking(null); setIsFormModalOpen(true); }}
-                className={`flex-1 sm:flex-none ${theme.primary} hover:opacity-90 text-white font-bold py-3 px-6 rounded-xl flex items-center justify-center gap-2 shadow-lg transition-all active:scale-95`}
-            >
+             <button onClick={() => { setEditingBooking(null); setIsFormModalOpen(true); }} className={`flex-1 sm:flex-none ${theme.primary} hover:opacity-90 text-white font-bold py-3 px-6 rounded-xl flex items-center justify-center gap-2 shadow-lg transition-all active:scale-95`}>
                 <Plus size={20} /> <span>Nuevo Turno</span>
             </button>
         </div>
@@ -264,6 +288,70 @@ export const BookingModule: React.FC<BookingModuleProps> = ({ bookings, courts, 
                        </div>
                        <button onClick={() => { if(window.confirm('¿Seguro que deseas eliminar esta reserva?')) { onUpdateStatus(selectedBooking.id, BookingStatus.CANCELLED); setSelectedBooking(null); } }} className="w-full bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2"><Trash2 size={16}/> Eliminar Reserva</button>
                   </div>
+              </div>
+          </div>
+      )}
+
+      {/* --- PAYMENT MODAL --- */}
+      {paymentModal.isOpen && paymentModal.booking && (
+          <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-in fade-in">
+              <div className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-sm shadow-2xl p-6 relative">
+                  <button onClick={() => setPaymentModal({ ...paymentModal, isOpen: false })} className="absolute right-4 top-4 text-slate-400 hover:text-white"><X size={20}/></button>
+                  
+                  <div className="text-center mb-6">
+                      <div className="w-16 h-16 bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg border border-white/5">
+                          {paymentModal.type === PaymentMethod.QR ? <QrCode size={32} className="text-blue-400"/> : <CreditCard size={32} className="text-purple-400"/>}
+                      </div>
+                      <h3 className="text-xl font-bold text-white mb-1">
+                          {paymentModal.type === PaymentMethod.QR ? 'Cobro con QR' : 'Transferencia'}
+                      </h3>
+                      <p className="text-slate-400 text-sm">
+                          Total a cobrar: <span className="text-white font-bold text-lg">${formatMoney(paymentModal.booking.price)}</span>
+                      </p>
+                  </div>
+
+                  {/* QR CONTENT */}
+                  {paymentModal.type === PaymentMethod.QR && (
+                      <div className="bg-white p-4 rounded-xl mb-6 mx-auto w-fit shadow-inner">
+                          {/* Generamos un QR visual usando una API pública segura para demos */}
+                          <img 
+                              src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=Pago%20de%20$${paymentModal.booking.price}%20en%20PadelManager`}
+                              alt="QR de Pago" 
+                              className="w-48 h-48 object-contain"
+                          />
+                          <p className="text-black/50 text-[10px] text-center mt-2 font-mono">Escanea con Mercado Pago</p>
+                      </div>
+                  )}
+
+                  {/* TRANSFER CONTENT */}
+                  {paymentModal.type === PaymentMethod.TRANSFER && (
+                      <div className="space-y-4 mb-6">
+                          <div className="bg-slate-800/50 p-4 rounded-xl border border-white/5 text-center">
+                              <p className="text-xs text-slate-500 uppercase font-bold mb-1">Alias</p>
+                              <div className="flex items-center justify-center gap-2">
+                                  <span className="text-xl font-mono text-white font-bold tracking-wider">{config.mpAlias}</span>
+                                  <button onClick={() => navigator.clipboard.writeText(config.mpAlias)} className="text-slate-400 hover:text-white p-1"><Copy size={14}/></button>
+                              </div>
+                          </div>
+                          
+                          <button 
+                              onClick={() => {
+                                  const text = `Hola! Aquí tienes el alias para transferir $${paymentModal.booking?.price}: *${config.mpAlias}*`;
+                                  window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+                              }}
+                              className="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2"
+                          >
+                              <Share2 size={18}/> Compartir por WhatsApp
+                          </button>
+                      </div>
+                  )}
+
+                  <button 
+                      onClick={handleConfirmPayment}
+                      className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2"
+                  >
+                      <Check size={20}/> Confirmar Pago Realizado
+                  </button>
               </div>
           </div>
       )}
