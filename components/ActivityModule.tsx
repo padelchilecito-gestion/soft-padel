@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ActivityLogEntry, ActivityType, ClubConfig } from '../types';
-import { ClipboardList, Filter, Search, Calendar, ShoppingCart, DollarSign, User, Package, Monitor, Power, Lock, Unlock } from 'lucide-react';
+import { ClipboardList, Search, Calendar, ShoppingCart, DollarSign, User, Package, Power } from 'lucide-react';
 import { COLOR_THEMES } from '../constants';
 
 interface ActivityModuleProps {
@@ -8,9 +8,15 @@ interface ActivityModuleProps {
     config: ClubConfig;
 }
 
+// Helper para evitar crasheos con valores null/undefined
+const formatMoney = (amount?: number | null) => {
+    return (amount || 0).toLocaleString();
+};
+
 export const ActivityModule: React.FC<ActivityModuleProps> = ({ activities, config }) => {
     const [filterType, setFilterType] = useState<string>('ALL');
     const [searchTerm, setSearchTerm] = useState('');
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const theme = COLOR_THEMES[config.courtColorTheme];
 
     const getIcon = (type: ActivityType) => {
@@ -60,7 +66,7 @@ export const ActivityModule: React.FC<ActivityModuleProps> = ({ activities, conf
                     <div className="relative flex-1">
                         <input 
                             type="text" 
-                            placeholder="Buscar por usuario o descripción..." 
+                            placeholder="Buscar..." 
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                             className="w-full bg-slate-800 border border-white/10 rounded-lg py-2.5 pl-9 text-sm text-white focus:ring-2 focus:ring-purple-500"
@@ -93,7 +99,6 @@ export const ActivityModule: React.FC<ActivityModuleProps> = ({ activities, conf
                 ) : (
                     filteredActivities.map((act) => (
                         <div key={act.id} className="relative group">
-                            {/* Dot on timeline */}
                             <div className="absolute -left-[21px] top-1 w-3 h-3 rounded-full bg-slate-800 border-2 border-slate-600 group-hover:border-purple-400 group-hover:bg-purple-500 transition-colors"></div>
                             
                             <div className="bg-slate-900/40 backdrop-blur-sm p-4 rounded-xl border border-white/5 hover:bg-white/5 transition-all hover:border-white/10">
@@ -121,9 +126,10 @@ export const ActivityModule: React.FC<ActivityModuleProps> = ({ activities, conf
                                 
                                 <div className="flex justify-between items-start">
                                     <p className="text-sm text-slate-200">{act.description}</p>
-                                    {act.amount !== undefined && (
+                                    {/* CORRECCIÓN: Verificación segura de null/undefined */}
+                                    {act.amount != null && (
                                         <span className="font-mono font-bold text-white bg-white/5 px-2 py-1 rounded">
-                                            ${act.amount.toLocaleString()}
+                                            ${formatMoney(act.amount)}
                                         </span>
                                     )}
                                 </div>
