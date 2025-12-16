@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Clock, Check, X, RefreshCw, Plus, CalendarDays, MapPin, Edit2, Trash2, Banknote, QrCode, CreditCard, Save, AlertCircle, ChevronDown, ChevronLeft, ChevronRight, Copy, Share2, User } from 'lucide-react';
+// CORRECCIÓN: Agregado 'MessageCircle' a los imports que faltaba
+import { Clock, Check, X, RefreshCw, Plus, CalendarDays, MapPin, Edit2, Trash2, Banknote, QrCode, CreditCard, Save, AlertCircle, ChevronDown, ChevronLeft, ChevronRight, Copy, Share2, User, MessageCircle } from 'lucide-react';
 import { Booking, BookingStatus, ClubConfig, Court, PaymentMethod } from '../types';
 import { COLOR_THEMES } from '../constants';
 
