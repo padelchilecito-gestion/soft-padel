@@ -164,11 +164,9 @@ export const subscribeConfig = (callback: (data: ClubConfig) => void) => {
     return onSnapshot(doc(db, CONFIG_COL, CONFIG_DOC_ID), (docSnap) => {
         if (docSnap.exists()) {
             const rawData = docSnap.data();
-            // Convertimos el formato de DB al formato de la App
             const config = deserializeConfig(rawData);
             callback(config);
         } else {
-            // Guardamos la config inicial procesada
             const initialForDb = serializeConfig(INITIAL_CONFIG);
             setDoc(doc(db, CONFIG_COL, CONFIG_DOC_ID), initialForDb);
             callback(INITIAL_CONFIG);
@@ -177,7 +175,6 @@ export const subscribeConfig = (callback: (data: ClubConfig) => void) => {
 };
 
 export const updateConfig = async (config: ClubConfig) => {
-    // Preparamos los datos antes de guardar
     const dataToSave = serializeConfig(config);
     await setDoc(doc(db, CONFIG_COL, CONFIG_DOC_ID), dataToSave);
 };
@@ -210,8 +207,6 @@ export const seedDatabase = async () => {
             console.log("Seeding Courts...");
             for (const c of MOCK_COURTS) await setDoc(doc(db, COURTS_COL, c.id), sanitize(c));
         }
-        
-        // No hace falta seed de config aquí, subscribeConfig lo maneja
     } catch (error) {
         console.error("Error seeding database:", error);
     }
