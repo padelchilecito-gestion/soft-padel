@@ -12,10 +12,13 @@ const ACTIVITY_COL = 'activity_logs';
 const CONFIG_COL = 'club_config';
 const CONFIG_DOC_ID = 'main_config';
 
-// --- HELPER PARA EVITAR ERROR "UNDEFINED" ---
-// Firebase no acepta valores 'undefined', así que los convertimos a 'null'
-const sanitize = (data: any) => {
+// --- HELPERS DE SANITIZACIÓN ---
+
+// 1. Quitar 'undefined' (Firebase no lo acepta)
+const sanitize = (data: any): any => {
     if (!data || typeof data !== 'object') return data;
+    // Si es fecha Date, convertir a string ISO
+    if (data instanceof Date) return data.toISOString();
     
     const cleanData = Array.isArray(data) ? [...data] : { ...data };
     
@@ -29,6 +32,36 @@ const sanitize = (data: any) => {
     return cleanData;
 };
 
+// 2. Transformar Matriz 2D (Schedule) a Objeto para Firebase
+// Firebase no soporta arrays anidados (boolean[][]). Lo convertimos a un mapa.
+const serializeConfig = (config: ClubConfig) => {
+    const safeConfig: any = sanitize(config);
+    if (safeConfig.schedule && Array.isArray(safeConfig.schedule)) {
+        const scheduleMap: any = {};
+        safeConfig.schedule.forEach((dayHours: boolean[], index: number) => {
+            scheduleMap[`day${index}`] = dayHours;
+        });
+        safeConfig.schedule = scheduleMap;
+    }
+    return safeConfig;
+};
+
+// 3. Restaurar Objeto a Matriz 2D para la App
+const deserializeConfig = (data: any): ClubConfig => {
+    const config = { ...data } as ClubConfig;
+    // Si 'schedule' viene como objeto (formato guardado), lo pasamos a array
+    if (config.schedule && !Array.isArray(config.schedule)) {
+        const scheduleArray: boolean[][] = [];
+        const scheduleObj = config.schedule as any;
+        for (let i = 0; i < 7; i++) {
+            // Si falta el día, asumimos todo falso o array vacío
+            scheduleArray.push(scheduleObj[`day${i}`] || []);
+        }
+        config.schedule = scheduleArray;
+    }
+    return config;
+};
+
 // --- BOOKINGS ---
 export const subscribeBookings = (callback: (data: Booking[]) => void) => {
     const q = query(collection(db, BOOKINGS_COL));
@@ -40,11 +73,9 @@ export const subscribeBookings = (callback: (data: Booking[]) => void) => {
 
 export const addBooking = async (booking: Booking) => {
     const dataToSave = sanitize(booking);
-    // Si tiene un ID predefinido (no temporal), usamos setDoc
     if (booking.id && !booking.id.startsWith('temp') && !booking.id.startsWith('web')) {
         await setDoc(doc(db, BOOKINGS_COL, booking.id), dataToSave);
     } else {
-        // Si es nuevo, dejamos que Firestore genere el ID o usamos el generado
         const { id, ...rest } = dataToSave;
         await addDoc(collection(db, BOOKINGS_COL), rest);
     }
@@ -103,7 +134,6 @@ export const subscribeCourts = (callback: (data: Court[]) => void) => {
 };
 
 export const updateCourtsList = async (courts: Court[]) => {
-    // Actualizamos una por una para asegurar consistencia
     for (const c of courts) {
         const ref = doc(db, COURTS_COL, c.id);
         await setDoc(ref, sanitize(c));
@@ -133,18 +163,23 @@ export const deleteUser = async (id: string) => {
 export const subscribeConfig = (callback: (data: ClubConfig) => void) => {
     return onSnapshot(doc(db, CONFIG_COL, CONFIG_DOC_ID), (docSnap) => {
         if (docSnap.exists()) {
-            callback(docSnap.data() as ClubConfig);
+            const rawData = docSnap.data();
+            // Convertimos el formato de DB al formato de la App
+            const config = deserializeConfig(rawData);
+            callback(config);
         } else {
-            // Crear configuración inicial si no existe
-            const initial = sanitize(INITIAL_CONFIG);
-            setDoc(doc(db, CONFIG_COL, CONFIG_DOC_ID), initial);
+            // Guardamos la config inicial procesada
+            const initialForDb = serializeConfig(INITIAL_CONFIG);
+            setDoc(doc(db, CONFIG_COL, CONFIG_DOC_ID), initialForDb);
             callback(INITIAL_CONFIG);
         }
     });
 };
 
 export const updateConfig = async (config: ClubConfig) => {
-    await setDoc(doc(db, CONFIG_COL, CONFIG_DOC_ID), sanitize(config));
+    // Preparamos los datos antes de guardar
+    const dataToSave = serializeConfig(config);
+    await setDoc(doc(db, CONFIG_COL, CONFIG_DOC_ID), dataToSave);
 };
 
 // --- ACTIVITY ---
@@ -175,6 +210,8 @@ export const seedDatabase = async () => {
             console.log("Seeding Courts...");
             for (const c of MOCK_COURTS) await setDoc(doc(db, COURTS_COL, c.id), sanitize(c));
         }
+        
+        // No hace falta seed de config aquí, subscribeConfig lo maneja
     } catch (error) {
         console.error("Error seeding database:", error);
     }
