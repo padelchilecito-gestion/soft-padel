@@ -2,9 +2,9 @@
 export default {
   content: [
     "./index.html",
-    "./*.{js,ts,jsx,tsx}",           // Busca en la raíz (App.tsx, index.tsx, etc.)
-    "./components/**/*.{js,ts,jsx,tsx}", // Busca en la carpeta components
-    "./services/**/*.{js,ts,jsx,tsx}",   // Busca en services por si acaso
+    "./*.{js,ts,jsx,tsx}",
+    "./components/**/*.{js,ts,jsx,tsx}",
+    "./services/**/*.{js,ts,jsx,tsx}",
   ],
   theme: {
     extend: {
