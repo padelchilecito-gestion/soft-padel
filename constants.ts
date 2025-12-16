@@ -1,4 +1,3 @@
-
 import { Booking, BookingStatus, ClubConfig, Court, Product, User, ActivityLogEntry } from './types';
 
 export const MOCK_USERS: User[] = [
@@ -95,13 +94,13 @@ export const INITIAL_CONFIG: ClubConfig = {
         isActive: true
     }
   ],
-  adRotationInterval: 5, // Default 5 seconds
+  adRotationInterval: 5,
   promoActive: false,
   promoText: '¡Gaseosa de Regalo!',
-  promoPrice: 20000
+  promoPrice: 20000,
+  mpAlias: 'ALIAS.PADEL.MP' // <--- VALOR INICIAL
 };
 
-// Generate some dummy bookings for today
 export const generateMockBookings = (): Booking[] => {
   const today = new Date().toISOString().split('T')[0];
   return [
