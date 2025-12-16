@@ -1,4 +1,3 @@
-
 export type Role = 'ADMIN' | 'OPERATOR' | 'PUBLIC';
 
 export enum BookingStatus {
@@ -25,30 +24,30 @@ export interface Court {
   id: string;
   name: string;
   type: 'Indoor' | 'Outdoor';
-  surfaceColor: 'blue' | 'green' | 'red';
+  surfaceColor: 'blue' | 'green' | 'red' | 'yellow';
   status: 'AVAILABLE' | 'MAINTENANCE';
   // Pricing
   basePrice: number;
   // Offer 1
   isOffer1Active: boolean;
   offer1Price: number;
-  offer1Label?: string; // e.g. "Mañana"
+  offer1Label?: string;
   // Offer 2
   isOffer2Active: boolean;
   offer2Price: number;
-  offer2Label?: string; // e.g. "Finde"
+  offer2Label?: string;
 }
 
 export interface Booking {
   id: string;
   courtId: string;
-  date: string; // YYYY-MM-DD
-  time: string; // HH:mm
-  duration: number; // minutes
+  date: string;
+  time: string;
+  duration: number;
   customerName: string;
   customerPhone: string;
   status: BookingStatus;
-  paymentMethod?: PaymentMethod; // Added payment method
+  paymentMethod?: PaymentMethod;
   price: number;
   isRecurring: boolean;
 }
@@ -80,25 +79,28 @@ export interface CashSession {
 export interface Advertisement {
   id: string;
   imageUrl: string;
-  linkUrl?: string; // Optional external link
+  linkUrl?: string;
   isActive: boolean;
 }
 
 export interface ClubConfig {
   name: string;
-  logoUrl?: string; // New field for custom logo
-  schedule: boolean[][]; // 7 days (0=Mon) x 24 hours. true = open
-  slotDuration: number; // 30, 60, 90
-  courtColorTheme: 'blue' | 'green' | 'red' | 'yellow'; // Added yellow
-  ownerPhone: string; // WhatsApp number for notifications
+  logoUrl?: string;
+  schedule: boolean[][];
+  slotDuration: number;
+  courtColorTheme: 'blue' | 'green' | 'red' | 'yellow';
+  ownerPhone: string;
   bookingBackgroundImage?: string;
   ads: Advertisement[];
-  adRotationInterval: number; // Seconds per slide
+  adRotationInterval: number;
   
   // Promotion Config
   promoActive: boolean;
   promoText: string;
-  promoPrice: number; // Fixed price for the 2-hour block
+  promoPrice: number;
+
+  // Payment Config
+  mpAlias: string; // <--- NUEVO CAMPO
 }
 
 export type ActivityType = 'BOOKING' | 'SALE' | 'SHIFT' | 'SYSTEM' | 'STOCK';
@@ -107,7 +109,7 @@ export interface ActivityLogEntry {
   id: string;
   type: ActivityType;
   description: string;
-  timestamp: string; // ISO String
-  user: string; // Username or Name
-  amount?: number; // Optional monetary value involved
+  timestamp: string;
+  user: string;
+  amount?: number;
 }
