@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-// CORRECCIÓN: Agregado 'MessageCircle' a los imports que faltaba
-import { Clock, Check, X, RefreshCw, Plus, CalendarDays, MapPin, Edit2, Trash2, Banknote, QrCode, CreditCard, Save, AlertCircle, ChevronDown, ChevronLeft, ChevronRight, Copy, Share2, User, MessageCircle } from 'lucide-react';
+// CORRECCIÓN: Se agrega 'MessageCircle' y 'CheckCircle' a los imports
+import { Clock, Check, X, RefreshCw, Plus, CalendarDays, MapPin, Edit2, Trash2, Banknote, QrCode, CreditCard, Save, AlertCircle, ChevronDown, ChevronLeft, ChevronRight, Copy, Share2, User, MessageCircle, CheckCircle } from 'lucide-react';
 import { Booking, BookingStatus, ClubConfig, Court, PaymentMethod } from '../types';
 import { COLOR_THEMES } from '../constants';
 
@@ -55,6 +55,7 @@ export const BookingModule: React.FC<BookingModuleProps> = ({ bookings, courts, 
       setIsFormModalOpen(true);
   };
 
+  // --- LÓGICA DE GUARDADO DEL FORMULARIO ---
   const handleFormSave = (booking: Booking) => {
       if (editingBooking) {
           onUpdateBooking(booking);
@@ -63,21 +64,31 @@ export const BookingModule: React.FC<BookingModuleProps> = ({ bookings, courts, 
       }
       setIsFormModalOpen(false);
       setEditingBooking(null);
+
+      // CORRECCIÓN: Abrir modal de pago automáticamente si se seleccionó QR o Transferencia
+      if (booking.paymentMethod === PaymentMethod.QR || booking.paymentMethod === PaymentMethod.TRANSFER) {
+          // Pequeño timeout para dar sensación de guardado
+          setTimeout(() => {
+              setPaymentModal({
+                  isOpen: true,
+                  type: booking.paymentMethod!,
+                  booking: booking
+              });
+          }, 300);
+      }
   };
 
-  // --- PAYMENT LOGIC ---
+  // --- LOGICA DE BOTONES DE PAGO (DROPDOWN) ---
   const handlePaymentSelect = (e: React.MouseEvent, booking: Booking, method?: PaymentMethod) => {
       e.stopPropagation();
       setActiveDropdownId(null);
 
       if (!method) {
-          // Marcar como impago (solo actualizar, no confirmar)
           onUpdateBooking({ ...booking, paymentMethod: undefined });
           return;
       }
 
       if (method === PaymentMethod.CASH) {
-          // Efectivo: Confirmar y marcar pagado inmediatamente
           const updated = { 
               ...booking, 
               paymentMethod: method,
@@ -85,7 +96,6 @@ export const BookingModule: React.FC<BookingModuleProps> = ({ bookings, courts, 
           };
           onUpdateBooking(updated);
       } else {
-          // Transferencia o QR: Abrir modal de cobro
           setPaymentModal({ isOpen: true, type: method, booking });
       }
   };
@@ -330,8 +340,9 @@ export const BookingModule: React.FC<BookingModuleProps> = ({ bookings, courts, 
                           <div className="bg-slate-800/50 p-4 rounded-xl border border-white/5 text-center">
                               <p className="text-xs text-slate-500 uppercase font-bold mb-1">Alias</p>
                               <div className="flex items-center justify-center gap-2">
-                                  <span className="text-xl font-mono text-white font-bold tracking-wider">{config.mpAlias}</span>
-                                  <button onClick={() => navigator.clipboard.writeText(config.mpAlias)} className="text-slate-400 hover:text-white p-1"><Copy size={14}/></button>
+                                  {/* CORRECCIÓN: Fallback si no hay alias */}
+                                  <span className="text-xl font-mono text-white font-bold tracking-wider">{config.mpAlias || 'NO-CONFIG'}</span>
+                                  <button onClick={() => navigator.clipboard.writeText(config.mpAlias || '')} className="text-slate-400 hover:text-white p-1"><Copy size={14}/></button>
                               </div>
                           </div>
                           
@@ -351,7 +362,7 @@ export const BookingModule: React.FC<BookingModuleProps> = ({ bookings, courts, 
                       onClick={handleConfirmPayment}
                       className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2"
                   >
-                      <Check size={20}/> Confirmar Pago Realizado
+                      <CheckCircle size={20}/> Confirmar Pago Realizado
                   </button>
               </div>
           </div>
@@ -383,8 +394,6 @@ const BookingFormModal = ({ isOpen, onClose, courts, onSave, initialDate, initia
         const court = courts.find((c: Court) => c.id === courtId);
         setForm({ ...form, courtId, price: court ? (court.basePrice || 0) : 0 });
     };
-
-    const applyPrice = (price: number) => { setForm(prev => ({ ...prev, price })); };
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
