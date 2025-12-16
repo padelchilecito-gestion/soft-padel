@@ -94,6 +94,11 @@ export interface ClubConfig {
   bookingBackgroundImage?: string;
   ads: Advertisement[];
   adRotationInterval: number; // Seconds per slide
+  
+  // Promotion Config
+  promoActive: boolean;
+  promoText: string;
+  promoPrice: number; // Fixed price for the 2-hour block
 }
 
 export type ActivityType = 'BOOKING' | 'SALE' | 'SHIFT' | 'SYSTEM' | 'STOCK';

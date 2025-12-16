@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Calendar as CalendarIcon, Clock, Check, X, RefreshCw, Plus, CalendarDays, Tag, Percent, MessageCircle, User, ChevronLeft, ChevronRight, MapPin, Edit2, Trash2, Banknote, QrCode, CreditCard, Save, AlertCircle } from 'lucide-react';
+import { Calendar as CalendarIcon, Clock, Check, X, RefreshCw, Plus, CalendarDays, Tag, Percent, MessageCircle, User, ChevronLeft, ChevronRight, MapPin, Edit2, Trash2, Banknote, QrCode, CreditCard, Save, AlertCircle, ChevronDown } from 'lucide-react';
 import { Booking, BookingStatus, ClubConfig, Court, PaymentMethod } from '../types';
 import { COLOR_THEMES } from '../constants';
 
@@ -18,6 +18,7 @@ export const BookingModule: React.FC<BookingModuleProps> = ({ bookings, courts, 
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [editingBooking, setEditingBooking] = useState<Booking | null>(null);
+  const [activeDropdownId, setActiveDropdownId] = useState<string | null>(null);
   
   const theme = COLOR_THEMES[config.courtColorTheme];
 
@@ -60,15 +61,14 @@ export const BookingModule: React.FC<BookingModuleProps> = ({ bookings, courts, 
       setEditingBooking(null);
   };
 
-  const handlePaymentChange = (e: React.ChangeEvent<HTMLSelectElement>, booking: Booking) => {
-      e.stopPropagation(); // Prevent card click
-      const method = e.target.value as PaymentMethod | '';
+  const handlePaymentSelect = (e: React.MouseEvent, booking: Booking, method?: PaymentMethod) => {
+      e.stopPropagation();
       const updatedBooking = { 
           ...booking, 
-          paymentMethod: method || undefined,
-          // Optional: Auto-confirm if paid? Let's keep it manual as requested implies just setting payment.
+          paymentMethod: method,
       };
       onUpdateBooking(updatedBooking);
+      setActiveDropdownId(null);
   };
 
   const getPaymentIcon = (method?: PaymentMethod) => {
@@ -83,6 +83,11 @@ export const BookingModule: React.FC<BookingModuleProps> = ({ bookings, courts, 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-20 h-full flex flex-col max-w-3xl mx-auto">
       
+      {/* Backdrop for Dropdowns */}
+      {activeDropdownId && (
+          <div className="fixed inset-0 z-40 cursor-default" onClick={() => setActiveDropdownId(null)} />
+      )}
+
       {/* --- CONTROL BAR (Sticky) --- */}
       <div className="bg-slate-900/90 backdrop-blur-md p-3 rounded-xl border border-white/10 shadow-lg flex flex-col sm:flex-row justify-between items-center gap-4 sticky top-0 z-30">
         
@@ -119,7 +124,7 @@ export const BookingModule: React.FC<BookingModuleProps> = ({ bookings, courts, 
       </div>
 
       {/* --- AGENDA VIEW: LIST OF CARDS --- */}
-      <div className="flex-1 space-y-4">
+      <div className="flex-1 space-y-4 relative z-0">
           
           {dailyBookings.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-20 text-slate-500 border border-dashed border-white/10 rounded-2xl bg-white/5">
@@ -134,21 +139,23 @@ export const BookingModule: React.FC<BookingModuleProps> = ({ bookings, courts, 
                   const court = courts.find(c => c.id === booking.courtId);
                   const isConfirmed = booking.status === BookingStatus.CONFIRMED;
                   const hasPayment = !!booking.paymentMethod;
+                  const isDropdownActive = activeDropdownId === booking.id;
 
                   return (
                       <div 
                         key={booking.id}
                         onClick={() => setSelectedBooking(booking)}
                         className={`
-                            relative group overflow-hidden rounded-2xl border transition-all cursor-pointer hover:scale-[1.01] active:scale-[0.99] shadow-md
+                            relative group rounded-2xl border transition-all cursor-pointer shadow-md
                             ${isConfirmed 
                                 ? 'bg-slate-800 border-l-4 border-l-green-500 border-y-white/5 border-r-white/5' 
                                 : 'bg-slate-800 border-l-4 border-l-yellow-500 border-y-white/5 border-r-white/5'}
+                            ${isDropdownActive ? 'z-50 ring-2 ring-blue-500/50' : 'z-0 hover:scale-[1.01] active:scale-[0.99]'}
                         `}
                       >
                           <div className="flex items-stretch">
                               {/* Left: Time */}
-                              <div className="w-20 sm:w-24 bg-slate-900/50 flex flex-col items-center justify-center p-2 sm:p-4 border-r border-white/5">
+                              <div className="w-20 sm:w-24 bg-slate-900/50 flex flex-col items-center justify-center p-2 sm:p-4 border-r border-white/5 rounded-l-2xl">
                                   <span className="text-xl sm:text-2xl font-bold text-white tracking-tight">{booking.time}</span>
                                   <span className="text-[10px] sm:text-xs text-slate-500 mt-1 font-medium">{booking.duration} min</span>
                               </div>
@@ -178,29 +185,42 @@ export const BookingModule: React.FC<BookingModuleProps> = ({ bookings, courts, 
                               </div>
 
                               {/* Right: Actions Column (Payment & Status) */}
-                              <div className="flex flex-col items-end justify-center p-3 sm:p-4 gap-2 border-l border-white/5 bg-white/[0.02] min-w-[110px]">
+                              <div className="flex flex-col items-end justify-center p-3 sm:p-4 gap-2 border-l border-white/5 bg-white/[0.02] min-w-[120px] rounded-r-2xl">
                                   
-                                  {/* Payment Selector Button (PILL STYLE) */}
-                                  <div 
-                                    className={`relative px-3 py-1.5 rounded-full text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer hover:bg-white/5 transition-colors w-full text-center
-                                        ${hasPayment ? 'bg-blue-500/10 text-blue-400' : 'bg-slate-700/30 text-slate-400'}
-                                    `}
-                                    onClick={(e) => e.stopPropagation()} 
-                                  >
-                                      {getPaymentIcon(booking.paymentMethod)}
-                                      <span className="truncate">{booking.paymentMethod || 'Impago'}</span>
-                                      
-                                      {/* Invisible Select overlay for native functionality */}
-                                      <select 
-                                        value={booking.paymentMethod || ''}
-                                        onChange={(e) => handlePaymentChange(e, booking)}
-                                        className="absolute inset-0 opacity-0 w-full h-full cursor-pointer appearance-none"
+                                  {/* Custom Payment Dropdown */}
+                                  <div className="relative w-full">
+                                      <button 
+                                        onClick={(e) => { e.stopPropagation(); setActiveDropdownId(isDropdownActive ? null : booking.id); }}
+                                        className={`
+                                            w-full px-3 py-1.5 rounded-full text-xs font-bold flex items-center justify-between gap-1 transition-colors border border-transparent
+                                            ${hasPayment ? 'bg-blue-500/10 text-blue-400 hover:bg-blue-500/20' : 'bg-slate-700/30 text-slate-400 hover:bg-slate-700/50'}
+                                        `}
                                       >
-                                          <option value="">Marcar Impago</option>
-                                          <option value={PaymentMethod.CASH}>Efectivo</option>
-                                          <option value={PaymentMethod.QR}>QR Mercado Pago</option>
-                                          <option value={PaymentMethod.TRANSFER}>Transferencia</option>
-                                      </select>
+                                          <div className="flex items-center gap-1.5 truncate">
+                                              {getPaymentIcon(booking.paymentMethod)}
+                                              <span className="truncate">{booking.paymentMethod || 'Impago'}</span>
+                                          </div>
+                                          <ChevronDown size={10} className={`transition-transform duration-200 ${isDropdownActive ? 'rotate-180' : ''}`}/>
+                                      </button>
+
+                                      {/* Dropdown Menu */}
+                                      {isDropdownActive && (
+                                          <div className="absolute right-0 top-full mt-2 w-48 bg-slate-900 border border-white/10 rounded-xl shadow-2xl z-[60] overflow-hidden flex flex-col p-1 animate-in fade-in zoom-in-95 duration-200">
+                                              <button onClick={(e) => handlePaymentSelect(e, booking, undefined)} className="flex items-center gap-2 px-3 py-2.5 text-xs text-slate-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors text-left font-medium">
+                                                  <AlertCircle size={14}/> Marcar Impago
+                                              </button>
+                                              <div className="h-px bg-white/5 my-1"></div>
+                                              <button onClick={(e) => handlePaymentSelect(e, booking, PaymentMethod.CASH)} className="flex items-center gap-2 px-3 py-2.5 text-xs text-green-400 hover:bg-white/5 rounded-lg transition-colors text-left font-bold">
+                                                  <Banknote size={14}/> Efectivo
+                                              </button>
+                                              <button onClick={(e) => handlePaymentSelect(e, booking, PaymentMethod.QR)} className="flex items-center gap-2 px-3 py-2.5 text-xs text-blue-400 hover:bg-white/5 rounded-lg transition-colors text-left font-bold">
+                                                  <QrCode size={14}/> QR Mercado Pago
+                                              </button>
+                                              <button onClick={(e) => handlePaymentSelect(e, booking, PaymentMethod.TRANSFER)} className="flex items-center gap-2 px-3 py-2.5 text-xs text-purple-400 hover:bg-white/5 rounded-lg transition-colors text-left font-bold">
+                                                  <CreditCard size={14}/> Transferencia
+                                              </button>
+                                          </div>
+                                      )}
                                   </div>
 
                                   {/* Status Indicator (PILL STYLE) */}

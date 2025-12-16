@@ -28,7 +28,7 @@ export const MOCK_COURTS: Court[] = [
     surfaceColor: 'blue', 
     status: 'AVAILABLE',
     basePrice: 18000,
-    isOffer1Active: true,
+    isOffer1Active: false,
     offer1Price: 14000,
     offer1Label: 'Promo Mañana',
     isOffer2Active: false,
@@ -95,7 +95,10 @@ export const INITIAL_CONFIG: ClubConfig = {
         isActive: true
     }
   ],
-  adRotationInterval: 5 // Default 5 seconds
+  adRotationInterval: 5, // Default 5 seconds
+  promoActive: false,
+  promoText: '¡Gaseosa de Regalo!',
+  promoPrice: 20000
 };
 
 // Generate some dummy bookings for today
