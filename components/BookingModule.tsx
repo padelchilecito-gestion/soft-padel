@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Clock, Check, X, RefreshCw, Plus, CalendarDays, MapPin, Edit2, Trash2, Banknote, QrCode, CreditCard, Save, AlertCircle, ChevronDown, ChevronLeft, ChevronRight, Copy, Share2 } from 'lucide-react';
+// CORRECCIÓN: Agregado 'User' a los imports
+import { Clock, Check, X, RefreshCw, Plus, CalendarDays, MapPin, Edit2, Trash2, Banknote, QrCode, CreditCard, Save, AlertCircle, ChevronDown, ChevronLeft, ChevronRight, Copy, Share2, User } from 'lucide-react';
 import { Booking, BookingStatus, ClubConfig, Court, PaymentMethod } from '../types';
 import { COLOR_THEMES } from '../constants';
 
@@ -313,7 +314,7 @@ export const BookingModule: React.FC<BookingModuleProps> = ({ bookings, courts, 
                   {/* QR CONTENT */}
                   {paymentModal.type === PaymentMethod.QR && (
                       <div className="bg-white p-4 rounded-xl mb-6 mx-auto w-fit shadow-inner">
-                          {/* Generamos un QR visual usando una API pública segura para demos */}
+                          {/* Generamos un QR visual */}
                           <img 
                               src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=Pago%20de%20$${paymentModal.booking.price}%20en%20PadelManager`}
                               alt="QR de Pago" 
