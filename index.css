@@ -6,10 +6,11 @@ html, body, #root {
   height: 100%;
   margin: 0;
   padding: 0;
-  background-color: #0f172a; /* Slate 950 base */
+  background-color: #0f172a; /* Slate 950 fondo base */
+  color: white;
 }
 
-/* Solución para gráficos de Recharts que se colapsan */
+/* Solución CRÍTICA para los gráficos de Recharts */
 .recharts-responsive-container {
     min-height: 300px;
     width: 100% !important;
