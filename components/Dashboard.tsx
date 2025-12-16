@@ -20,6 +20,11 @@ const getTodayStr = () => {
     }).split('/').reverse().join('-');
 };
 
+// Helper seguro para formato de dinero
+const formatMoney = (amount?: number | null) => {
+    return (amount || 0).toLocaleString();
+};
+
 export const Dashboard: React.FC<DashboardProps> = ({ bookings, products, config }) => {
   const theme = COLOR_THEMES[config.courtColorTheme];
   const todayStr = getTodayStr();
@@ -27,51 +32,47 @@ export const Dashboard: React.FC<DashboardProps> = ({ bookings, products, config
   // --- 1. DATOS PARA LAS TARJETAS (KPIs) ---
   
   // Productos con bajo stock
-  const lowStockProducts = products.filter(p => p.stock <= p.minStockAlert);
+  const lowStockProducts = products.filter(p => (p.stock || 0) <= (p.minStockAlert || 0));
 
   // Reservas de HOY
   const todayBookings = bookings.filter(b => b.date === todayStr && b.status !== BookingStatus.CANCELLED);
   
-  // Ingresos de HOY (Solo confirmados o pagados)
+  // Ingresos de HOY
   const dailyRevenue = todayBookings.reduce((acc, curr) => {
-      // Sumar si está confirmada o si tiene un pago registrado (aunque esté pendiente)
-      const isPaidOrConfirmed = curr.status === BookingStatus.CONFIRMED || (curr.paymentMethod !== undefined);
-      return acc + (isPaidOrConfirmed ? curr.price : 0);
+      const isPaidOrConfirmed = curr.status === BookingStatus.CONFIRMED || (curr.paymentMethod !== undefined && curr.paymentMethod !== null);
+      return acc + (isPaidOrConfirmed ? (curr.price || 0) : 0);
   }, 0);
 
-  // Ingresos de AYER (Para calcular la variación)
+  // Ingresos de AYER
   const yesterday = new Date();
   yesterday.setDate(yesterday.getDate() - 1);
   const yesterdayStr = yesterday.toISOString().split('T')[0];
   const yesterdayRevenue = bookings
-    .filter(b => b.date === yesterdayStr && (b.status === BookingStatus.CONFIRMED || b.paymentMethod !== undefined))
-    .reduce((acc, curr) => acc + curr.price, 0);
+    .filter(b => b.date === yesterdayStr && (b.status === BookingStatus.CONFIRMED || (b.paymentMethod !== undefined && b.paymentMethod !== null)))
+    .reduce((acc, curr) => acc + (curr.price || 0), 0);
 
-  // Cálculo de porcentaje de variación
   const revenueChange = yesterdayRevenue > 0 
     ? Math.round(((dailyRevenue - yesterdayRevenue) / yesterdayRevenue) * 100) 
     : 0;
   const revenueSign = revenueChange >= 0 ? '+' : '';
 
-  // --- 2. DATOS PARA LOS GRÁFICOS (Últimos 7 días) ---
+  // --- 2. DATOS PARA LOS GRÁFICOS ---
   const chartData = useMemo(() => {
       const days = ['Dom', 'Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab'];
       const data = [];
       
-      // Generar últimos 7 días
       for (let i = 6; i >= 0; i--) {
           const d = new Date();
           d.setDate(d.getDate() - i);
           const dStr = d.toISOString().split('T')[0];
           const dayName = days[d.getDay()];
 
-          // Filtrar reservas de ese día
           const dailyBookings = bookings.filter(b => b.date === dStr && b.status !== BookingStatus.CANCELLED);
           const dailyTotal = dailyBookings.reduce((acc, curr) => 
-            acc + (curr.status === BookingStatus.CONFIRMED || curr.paymentMethod ? curr.price : 0), 0);
+            acc + (curr.status === BookingStatus.CONFIRMED || (curr.paymentMethod !== undefined && curr.paymentMethod !== null) ? (curr.price || 0) : 0), 0);
 
           data.push({
-              name: dayName, // Ej: "Lun"
+              name: dayName,
               fullDate: dStr,
               ventas: dailyTotal,
               reservas: dailyBookings.length
@@ -80,20 +81,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ bookings, products, config
       return data;
   }, [bookings]);
 
-  // --- 3. PRÓXIMOS TURNOS (Ordenados por fecha/hora) ---
+  // --- 3. PRÓXIMOS TURNOS ---
   const upcomingBookings = useMemo(() => {
       return bookings
         .filter(b => {
-            // Solo mostrar reservas de hoy en adelante que no estén canceladas
             if (b.status === BookingStatus.CANCELLED) return false;
             return b.date >= todayStr;
         })
         .sort((a, b) => {
-            // Ordenar por Fecha y luego por Hora
             if (a.date !== b.date) return a.date.localeCompare(b.date);
             return a.time.localeCompare(b.time);
         })
-        .slice(0, 5); // Tomar solo los primeros 5
+        .slice(0, 5);
   }, [bookings, todayStr]);
 
   return (
@@ -103,11 +102,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ bookings, products, config
         <p className="text-slate-400">Resumen operativo del día ({todayStr}) en tiempo real.</p>
       </header>
 
-      {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         <StatCard 
           title="Ingresos del Día" 
-          value={`$${dailyRevenue.toLocaleString()}`} 
+          value={`$${formatMoney(dailyRevenue)}`} 
           icon={<TrendingUp className="text-green-400" />} 
           change={`${revenueSign}${revenueChange}% vs ayer`}
           theme={theme}
@@ -129,12 +127,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ bookings, products, config
         />
       </div>
 
-      {/* Charts Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Revenue Chart */}
         <div className="bg-slate-900/60 backdrop-blur-md p-6 rounded-2xl border border-white/10 shadow-xl flex flex-col h-[400px]">
           <h3 className="text-lg font-semibold mb-4 text-white">Ingresos (Últimos 7 días)</h3>
-          <div className="flex-1 min-h-0">
+          <div className="flex-1 min-h-0 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={chartData}>
                 <defs>
@@ -149,7 +145,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ bookings, products, config
                 <Tooltip 
                   contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '8px' }}
                   itemStyle={{ color: '#fff' }}
-                  formatter={(value: number) => [`$${value.toLocaleString()}`, 'Ventas']}
+                  formatter={(value: number) => [`$${formatMoney(value)}`, 'Ventas']}
                 />
                 <Area type="monotone" dataKey="ventas" stroke={theme.courtFill} fillOpacity={1} fill="url(#colorVentas)" />
               </AreaChart>
@@ -157,10 +153,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ bookings, products, config
           </div>
         </div>
 
-        {/* Occupancy Chart */}
         <div className="bg-slate-900/60 backdrop-blur-md p-6 rounded-2xl border border-white/10 shadow-xl flex flex-col h-[400px]">
           <h3 className="text-lg font-semibold mb-4 text-white">Ocupación (Turnos por día)</h3>
-          <div className="flex-1 min-h-0">
+          <div className="flex-1 min-h-0 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" />
@@ -179,7 +174,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ bookings, products, config
         </div>
       </div>
 
-      {/* Quick Actions / Recent */}
       <div className="bg-slate-900/60 backdrop-blur-md p-6 rounded-2xl border border-white/10 shadow-xl">
         <h3 className="text-lg font-semibold mb-4 text-white">Próximos Turnos (Agenda)</h3>
         <div className="overflow-x-auto">
@@ -206,7 +200,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ bookings, products, config
                           </div>
                       </td>
                       <td className="px-4 py-3">Cancha {booking.courtId}</td>
-                      <td className="px-4 py-3 font-bold">{booking.customerName}</td>
+                      <td className="px-4 py-3 font-bold">{booking.customerName || 'Sin Nombre'}</td>
                       <td className="px-4 py-3">
                         <span className={`px-2 py-1 rounded-full text-xs font-semibold border
                           ${booking.status === BookingStatus.CONFIRMED ? 'bg-green-500/10 border-green-500/20 text-green-400' : 
@@ -215,7 +209,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ bookings, products, config
                           {booking.status}
                         </span>
                       </td>
-                      <td className="px-4 py-3 font-mono text-white">${booking.price.toLocaleString()}</td>
+                      <td className="px-4 py-3 font-mono text-white">${formatMoney(booking.price)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -227,7 +221,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ bookings, products, config
   );
 };
 
-// Componente auxiliar para las tarjetas
 const StatCard = ({ title, value, icon, change, isAlert, theme }: any) => (
   <div className={`p-6 rounded-2xl border ${isAlert ? 'border-red-500/50 bg-red-500/10' : 'border-white/10 bg-slate-900/60'} backdrop-blur-md shadow-lg transition-all hover:scale-[1.02]`}>
     <div className="flex justify-between items-start mb-4">
