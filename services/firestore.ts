@@ -13,10 +13,18 @@ const CONFIG_COL = 'club_config';
 const CONFIG_DOC_ID = 'main_config';
 
 // --- HELPER PARA EVITAR ERROR "UNDEFINED" ---
+// Firebase no acepta valores 'undefined', así que los convertimos a 'null'
 const sanitize = (data: any) => {
-    const cleanData = { ...data };
+    if (!data || typeof data !== 'object') return data;
+    
+    const cleanData = Array.isArray(data) ? [...data] : { ...data };
+    
     Object.keys(cleanData).forEach(key => {
-        if (cleanData[key] === undefined) cleanData[key] = null;
+        if (cleanData[key] === undefined) {
+            cleanData[key] = null;
+        } else if (typeof cleanData[key] === 'object' && cleanData[key] !== null) {
+            cleanData[key] = sanitize(cleanData[key]);
+        }
     });
     return cleanData;
 };
@@ -32,9 +40,11 @@ export const subscribeBookings = (callback: (data: Booking[]) => void) => {
 
 export const addBooking = async (booking: Booking) => {
     const dataToSave = sanitize(booking);
-    if (booking.id && !booking.id.startsWith('temp')) {
+    // Si tiene un ID predefinido (no temporal), usamos setDoc
+    if (booking.id && !booking.id.startsWith('temp') && !booking.id.startsWith('web')) {
         await setDoc(doc(db, BOOKINGS_COL, booking.id), dataToSave);
     } else {
+        // Si es nuevo, dejamos que Firestore genere el ID o usamos el generado
         const { id, ...rest } = dataToSave;
         await addDoc(collection(db, BOOKINGS_COL), rest);
     }
@@ -93,6 +103,7 @@ export const subscribeCourts = (callback: (data: Court[]) => void) => {
 };
 
 export const updateCourtsList = async (courts: Court[]) => {
+    // Actualizamos una por una para asegurar consistencia
     for (const c of courts) {
         const ref = doc(db, COURTS_COL, c.id);
         await setDoc(ref, sanitize(c));
@@ -124,8 +135,9 @@ export const subscribeConfig = (callback: (data: ClubConfig) => void) => {
         if (docSnap.exists()) {
             callback(docSnap.data() as ClubConfig);
         } else {
-            // Seeding inicial sanitizado
-            setDoc(doc(db, CONFIG_COL, CONFIG_DOC_ID), sanitize(INITIAL_CONFIG));
+            // Crear configuración inicial si no existe
+            const initial = sanitize(INITIAL_CONFIG);
+            setDoc(doc(db, CONFIG_COL, CONFIG_DOC_ID), initial);
             callback(INITIAL_CONFIG);
         }
     });
@@ -151,15 +163,19 @@ export const logActivity = async (entry: ActivityLogEntry) => {
 
 // --- SEED HELPER ---
 export const seedDatabase = async () => {
-    const usersSnap = await getDocs(collection(db, USERS_COL));
-    if (usersSnap.empty) {
-        console.log("Seeding Users...");
-        for (const u of MOCK_USERS) await setDoc(doc(db, USERS_COL, u.id), sanitize(u));
-    }
+    try {
+        const usersSnap = await getDocs(collection(db, USERS_COL));
+        if (usersSnap.empty) {
+            console.log("Seeding Users...");
+            for (const u of MOCK_USERS) await setDoc(doc(db, USERS_COL, u.id), sanitize(u));
+        }
 
-    const courtsSnap = await getDocs(collection(db, COURTS_COL));
-    if (courtsSnap.empty) {
-        console.log("Seeding Courts...");
-        for (const c of MOCK_COURTS) await setDoc(doc(db, COURTS_COL, c.id), sanitize(c));
+        const courtsSnap = await getDocs(collection(db, COURTS_COL));
+        if (courtsSnap.empty) {
+            console.log("Seeding Courts...");
+            for (const c of MOCK_COURTS) await setDoc(doc(db, COURTS_COL, c.id), sanitize(c));
+        }
+    } catch (error) {
+        console.error("Error seeding database:", error);
     }
 };
