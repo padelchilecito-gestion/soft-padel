@@ -10,7 +10,6 @@ import { INITIAL_CONFIG, COLOR_THEMES } from './constants';
 import { User, Booking, Product, ClubConfig, Court, ActivityLogEntry, BookingStatus, PaymentMethod, CartItem, ActivityType, Advertisement } from './types';
 import { LogIn, User as UserIcon, Users, Lock, ChevronRight, ArrowLeft, Settings, LayoutGrid, MessageCircle, Upload, Image as ImageIcon, Plus, Shield, DollarSign, Edit2, Trash2, Activity, Wrench, Calendar, AlertTriangle, CheckCircle, Tag, Percent, Sun, Moon, ArrowRight, CreditCard, Phone, Check, Unlock, Megaphone, Link as LinkIcon, ExternalLink, Bell, X, Globe, Clock, MapPin, Eye, EyeOff, Save, Flame, Gift, Info } from 'lucide-react';
 
-// --- IMPORTANTE: Conexión a Firebase ---
 import { 
   subscribeBookings, subscribeCourts, subscribeProducts, subscribeConfig, subscribeUsers, subscribeActivity,
   addBooking, updateBooking, updateBookingStatus, toggleBookingRecurring,
@@ -19,32 +18,24 @@ import {
   logActivity as logActivityService, seedDatabase
 } from './services/firestore';
 
-// --- SONIDO DE NOTIFICACIÓN ---
 const NOTIFICATION_SOUND = "data:audio/mp3;base64,SUQzBAAAAAABAFRYWFgAAAASAAADbWFqb3JfYnJhbmQAZGFzaABUWFhYAAAAEQAAA21pbm9yX3ZlcnNpb24AMABUWFhYAAAAHAAAA2NvbXBhdGlibGVfYnJhbmRzAGlzbzZtcDQxAFRTU0UAAAAPAAADTGF2ZjU5LjI3LjEwMAAAAAAAAAAAAAAA//uQZAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWgAAAA0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA8AAAAA//uQZAAABO0vX/sMQAJPwvX/sMQAJOg2f/wgwAkoDZ//CDAAAGwAAAAAMAAAAAAAAAAAAAABJAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAAFAAAAZgAALi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uAAAAADExLjEwMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//uQZAABAAABAAAAAAAABAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPAAAAA//uQZAAABO0vX/sMQAJPwvX/sMQAJOg2f/wgwAkoDZ//CDAAAGwAAAAAMAAAAAAAAAAAAAABJAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAASW5mbwAAAA8AAAAFAAAAZgAALi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uAAAAADExLjEwMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//uQZAAAAAAA0gAAABAAAA0gAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//uQZAAAAAAA0gAAABAAAA0gAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//uQZAAAAAAA0gAAABAAAA0gAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//uQZAAAAAAA0gAAABAAAA0gAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//uQZAAADAAABAAAAAAABAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
-
-// --- COMPONENTES AUXILIARES ---
 
 const NotificationToast = ({ message, onClose }: { message: string | null, onClose: () => void }) => {
     if (!message) return null;
     return (
         <div className="fixed top-4 right-4 z-[60] bg-blue-600 text-white p-4 rounded-xl shadow-2xl animate-in slide-in-from-top-4 flex items-center gap-3 max-w-sm border border-white/20 backdrop-blur-md">
-            <div className="bg-white/20 p-2 rounded-full">
-                <Bell size={20} className="animate-pulse"/>
-            </div>
+            <div className="bg-white/20 p-2 rounded-full"><Bell size={20} className="animate-pulse"/></div>
             <div className="flex-1">
                 <h4 className="font-bold text-sm">Nueva Actividad</h4>
                 <p className="text-xs opacity-90">{message}</p>
             </div>
-            <button onClick={onClose} className="p-1 hover:bg-white/20 rounded-full transition-colors">
-                <X size={16}/>
-            </button>
+            <button onClick={onClose} className="p-1 hover:bg-white/20 rounded-full transition-colors"><X size={16}/></button>
         </div>
     );
 };
 
 const ClockIconStub = () => <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>;
 
-// --- VISTA DE CAJA ---
 const CashboxView = ({ config, role, onLogActivity }: { config: ClubConfig, role: string, onLogActivity: (t: ActivityType, d: string, a?: number) => void }) => {
     const [status, setStatus] = useState<'OPEN' | 'CLOSED'>('CLOSED');
     const [amount, setAmount] = useState<string>('');
@@ -54,17 +45,9 @@ const CashboxView = ({ config, role, onLogActivity }: { config: ClubConfig, role
         if (!amount) return;
         const val = parseFloat(amount);
         const actionName = status === 'CLOSED' ? 'Apertura de Caja' : 'Cierre de Caja';
-        
-        const newRecord = {
-            id: Date.now(),
-            action: status === 'CLOSED' ? 'Apertura' : 'Cierre',
-            amount: val,
-            time: new Date().toLocaleTimeString(),
-            user: role
-        };
+        const newRecord = { id: Date.now(), action: status === 'CLOSED' ? 'Apertura' : 'Cierre', amount: val, time: new Date().toLocaleTimeString(), user: role };
         setHistory([newRecord, ...history]);
         setStatus(status === 'CLOSED' ? 'OPEN' : 'CLOSED');
-        
         onLogActivity('SHIFT', `${actionName}. Monto: $${val}`, val);
         setAmount('');
     };
@@ -72,69 +55,25 @@ const CashboxView = ({ config, role, onLogActivity }: { config: ClubConfig, role
     return (
         <div className="max-w-4xl mx-auto space-y-6 animate-in zoom-in-95 duration-300 pb-20">
             <div className="bg-slate-900/60 backdrop-blur-md p-8 rounded-2xl border border-white/10 text-center shadow-xl">
-                <div className={`w-24 h-24 mx-auto rounded-full flex items-center justify-center mb-6 shadow-lg border-4 transition-colors duration-500
-                    ${status === 'OPEN' 
-                        ? 'bg-green-500/20 text-green-400 border-green-500/30' 
-                        : 'bg-red-500/20 text-red-400 border-red-500/30'}`
-                }>
+                <div className={`w-24 h-24 mx-auto rounded-full flex items-center justify-center mb-6 shadow-lg border-4 transition-colors duration-500 ${status === 'OPEN' ? 'bg-green-500/20 text-green-400 border-green-500/30' : 'bg-red-500/20 text-red-400 border-red-500/30'}`}>
                     {status === 'OPEN' ? <Unlock size={48} /> : <Lock size={48} />}
                 </div>
-                
                 <h2 className="text-3xl font-bold text-white mb-2">{status === 'OPEN' ? 'Caja Abierta' : 'Caja Cerrada'}</h2>
-                <p className="text-slate-400 mb-8 max-w-md mx-auto">
-                    {status === 'OPEN' 
-                        ? 'El sistema está habilitado para registrar cobros. Cierra la caja al finalizar el turno.' 
-                        : 'Para comenzar a operar y registrar ventas, debes realizar la apertura de caja.'}
-                </p>
-                
-                <div className="flex flex-col sm:flex-row justify-center gap-4 items-center max-w-md mx-auto">
-                    <div className="relative w-full">
-                        <DollarSign className="absolute left-3 top-3.5 text-slate-400 h-5 w-5" />
-                        <input 
-                            type="number" 
-                            value={amount}
-                            onChange={(e) => setAmount(e.target.value)}
-                            placeholder={status === 'CLOSED' ? "Monto Inicial ($)" : "Monto Final ($)"}
-                            className="w-full bg-slate-800 border border-white/10 rounded-xl py-3 pl-10 text-white focus:ring-2 focus:ring-blue-500 font-mono text-lg"
-                        />
-                    </div>
-                    <button 
-                        onClick={handleAction}
-                        disabled={!amount}
-                        className={`w-full sm:w-auto px-8 py-3 rounded-xl font-bold text-white transition-all transform active:scale-95 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed
-                            ${status === 'CLOSED' 
-                                ? 'bg-green-600 hover:bg-green-500 shadow-green-500/30' 
-                                : 'bg-red-600 hover:bg-red-500 shadow-red-500/30'}`}
-                    >
-                        {status === 'CLOSED' ? 'ABRIR TURN' : 'CERRAR TURN'}
-                    </button>
+                <div className="flex flex-col sm:flex-row justify-center gap-4 items-center max-w-md mx-auto mt-4">
+                    <input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder={status === 'CLOSED' ? "Monto Inicial ($)" : "Monto Final ($)"} className="w-full bg-slate-800 border border-white/10 rounded-xl py-3 pl-4 text-white font-mono text-lg" />
+                    <button onClick={handleAction} disabled={!amount} className={`w-full sm:w-auto px-8 py-3 rounded-xl font-bold text-white ${status === 'CLOSED' ? 'bg-green-600' : 'bg-red-600'}`}>{status === 'CLOSED' ? 'ABRIR' : 'CERRAR'}</button>
                 </div>
             </div>
-
             <div className="bg-slate-900/60 backdrop-blur-md p-6 rounded-2xl border border-white/10 shadow-lg">
                 <h3 className="text-white font-bold text-lg mb-4 flex items-center gap-2"><Activity size={20}/> Auditoría de Sesión</h3>
                 <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2">
-                    {history.length === 0 && (
-                        <div className="text-center py-8 text-slate-500 bg-white/5 rounded-xl border border-white/5 border-dashed">
-                            Sin movimientos en este turno.
-                        </div>
-                    )}
                     {history.map((h: any) => (
                         <div key={h.id} className="flex justify-between items-center p-4 bg-slate-800/50 rounded-xl border border-white/5 hover:bg-slate-800 transition-colors">
                             <div className="flex items-center gap-4">
-                                <div className={`p-3 rounded-lg ${h.action === 'Apertura' ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'}`}>
-                                    {h.action === 'Apertura' ? <Unlock size={18}/> : <Lock size={18}/>}
-                                </div>
-                                <div>
-                                    <p className="text-white font-medium">{h.action}</p>
-                                    <p className="text-slate-500 text-xs flex items-center gap-1">
-                                        <ClockIconStub /> {h.time} • <UserIcon size={10}/> {h.user}
-                                    </p>
-                                </div>
+                                <div className={`p-3 rounded-lg ${h.action === 'Apertura' ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'}`}>{h.action === 'Apertura' ? <Unlock size={18}/> : <Lock size={18}/>}</div>
+                                <div><p className="text-white font-medium">{h.action}</p><p className="text-slate-500 text-xs flex items-center gap-1"><ClockIconStub /> {h.time} • <UserIcon size={10}/> {h.user}</p></div>
                             </div>
-                            <span className={`font-mono font-bold text-lg ${h.action === 'Apertura' ? 'text-green-400' : 'text-white'}`}>
-                                ${h.amount.toLocaleString()}
-                            </span>
+                            <span className={`font-mono font-bold text-lg ${h.action === 'Apertura' ? 'text-green-400' : 'text-white'}`}>${h.amount.toLocaleString()}</span>
                         </div>
                     ))}
                 </div>
@@ -143,7 +82,6 @@ const CashboxView = ({ config, role, onLogActivity }: { config: ClubConfig, role
     );
 };
 
-// --- VISTA DE CONFIGURACIÓN (SETTINGS) COMPLETA ---
 interface SettingsViewProps {
     config: ClubConfig;
     courts: Court[];
@@ -356,6 +294,23 @@ const SettingsView: React.FC<SettingsViewProps> = ({ config, courts, users, onUp
                                         />
                                     </div>
                                     <p className="text-[10px] text-slate-500 mt-1 ml-1">Ingresa el código de área (sin 0) y el número (sin 15).</p>
+                                </div>
+                                {/* NEW: Alias Mercado Pago */}
+                                <div>
+                                    <label className="block text-slate-400 text-xs font-bold uppercase mb-2">Alias Mercado Pago</label>
+                                    <div className="relative">
+                                        <div className="absolute left-3 top-1/2 -translate-y-1/2">
+                                            <CreditCard size={18} className="text-purple-400"/>
+                                        </div>
+                                        <input 
+                                            type="text" 
+                                            value={config.mpAlias} 
+                                            onChange={(e) => onUpdateConfig({...config, mpAlias: e.target.value})}
+                                            className="w-full bg-slate-800 border border-white/10 rounded-lg py-3 pl-10 text-white font-mono placeholder-slate-600 focus:ring-2 focus:ring-purple-500 uppercase"
+                                            placeholder="ALIAS.EJEMPLO.MP"
+                                        />
+                                    </div>
+                                    <p className="text-[10px] text-slate-500 mt-1 ml-1">Se mostrará a los clientes para transferencias.</p>
                                 </div>
                             </div>
                             
@@ -766,12 +721,10 @@ const SettingsView: React.FC<SettingsViewProps> = ({ config, courts, users, onUp
 
 // --- MAIN APP COMPONENT ---
 const App = () => {
-  // State
   const [user, setUser] = useState<User | null>(null);
   const [activeView, setActiveView] = useState('dashboard');
-  const [showLogin, setShowLogin] = useState(false); // New state to toggle login
+  const [showLogin, setShowLogin] = useState(false);
   
-  // Data State (inicializado vacio para esperar a firebase)
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [courts, setCourts] = useState<Court[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -779,45 +732,13 @@ const App = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [activities, setActivities] = useState<ActivityLogEntry[]>([]);
 
-  // Login State
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loginError, setLoginError] = useState('');
-
-  // Toast
   const [toast, setToast] = useState<string | null>(null);
 
-  const showToast = (msg: string) => {
-    setToast(msg);
-    setTimeout(() => setToast(null), 3000);
-  };
-
-  const playNotificationSound = () => {
-    try {
-        const audio = new Audio(NOTIFICATION_SOUND);
-        audio.volume = 0.5;
-        // Importante: El navegador puede bloquear esto si no hubo interacción previa
-        const playPromise = audio.play();
-        if (playPromise !== undefined) {
-            playPromise.catch(error => {
-                console.log("Audio autoplay prevented. User interaction needed.", error);
-            });
-        }
-    } catch (error) {
-        console.error("Error playing sound", error);
-    }
-  };
-
-  const handleNewBookingIncoming = (newBooking: Booking) => {
-      // Esta función se ejecuta cuando la BD detecta una nueva reserva
-      playNotificationSound();
-      showToast(`Nueva Reserva: ${newBooking.customerName}`);
-  };
-
-  // --- FIREBASE SUSCRIPTIONS ---
   useEffect(() => {
     seedDatabase();
-    // Pasamos el callback de sonido al suscriptor
     const unsubBookings = subscribeBookings(setBookings, handleNewBookingIncoming);
     const unsubCourts = subscribeCourts(setCourts);
     const unsubProducts = subscribeProducts(setProducts);
@@ -835,6 +756,31 @@ const App = () => {
     };
   }, []);
 
+  const showToast = (msg: string) => {
+    setToast(msg);
+    setTimeout(() => setToast(null), 3000);
+  };
+
+  const playNotificationSound = () => {
+    try {
+        const audio = new Audio(NOTIFICATION_SOUND);
+        audio.volume = 0.5;
+        const playPromise = audio.play();
+        if (playPromise !== undefined) {
+            playPromise.catch(error => {
+                console.log("Audio autoplay prevented. User interaction needed.", error);
+            });
+        }
+    } catch (error) {
+        console.error("Error playing sound", error);
+    }
+  };
+
+  const handleNewBookingIncoming = (newBooking: Booking) => {
+      playNotificationSound();
+      showToast(`Nueva Reserva: ${newBooking.customerName}`);
+  };
+
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     const foundUser = users.find(u => u.username === username && u.password === password);
@@ -842,7 +788,6 @@ const App = () => {
         setUser(foundUser);
         setLoginError('');
         handleLogActivity('SYSTEM', `Inicio de sesión: ${foundUser.username}`);
-        // Reproducir sonido para "desbloquear" el audio del navegador
         playNotificationSound();
     } else {
         setLoginError('Credenciales incorrectas');
@@ -855,7 +800,7 @@ const App = () => {
       setUsername('');
       setPassword('');
       setActiveView('dashboard');
-      setShowLogin(false); // Reset to public view
+      setShowLogin(false);
   };
 
   const handleLogActivity = (type: ActivityType, description: string, amount?: number) => {
@@ -867,48 +812,65 @@ const App = () => {
           user: user?.username || 'Sistema',
           amount
       };
-      // Guardar en Firebase
       logActivityService(newLog);
-      // Ya NO reproducimos sonido aquí para evitar dobles sonidos con el listener
       if (type !== 'SYSTEM') showToast(description);
   };
 
-  // Handlers para la UI (Llaman a Firestore)
-  const handleUpdateStatus = (id: string, s: BookingStatus) => { updateBookingStatus(id, s); handleLogActivity('BOOKING', `Estado actualizado: ${s}`); };
-  const handleToggleRecurring = (id: string) => { const b = bookings.find(b => b.id === id); if (b) toggleBookingRecurring(id, b.isRecurring); };
-  const handleUpdateBooking = (b: Booking) => { updateBooking(b); handleLogActivity('BOOKING', `Reserva modificada: ${b.customerName}`); };
-  const handleAddBooking = (b: Booking) => { addBooking(b); handleLogActivity('BOOKING', `Reserva manual: ${b.customerName}`, b.price); };
-  const handleProcessSale = (items: CartItem[], total: number, method: PaymentMethod) => { 
-      items.forEach(i => { 
-          const p = products.find(prod => prod.id === i.id); 
-          if (p) updateStock(p.id, p.stock - i.quantity); 
-      }); 
-      handleLogActivity('SALE', `Venta POS (${items.length} items) - ${method}`, total); 
+  const handleUpdateStatus = (id: string, s: BookingStatus) => {
+      updateBookingStatus(id, s);
+      handleLogActivity('BOOKING', `Estado de reserva actualizado: ${s}`);
   };
-  const handleAddProduct = (p: Product) => { addProduct(p); handleLogActivity('STOCK', `Producto agregado: ${p.name}`); };
-  const handleUpdateProduct = (p: Product) => { updateProduct(p); handleLogActivity('STOCK', `Producto actualizado: ${p.name}`); };
-  const handleDeleteProduct = (id: string) => { deleteProduct(id); handleLogActivity('STOCK', `Producto eliminado`); };
-  const handleUpdateConfig = (c: ClubConfig) => updateConfig(c);
-  const handleUpdateCourts = (c: Court[]) => updateCourtsList(c);
-  const handleUpdateUsers = (u: User[]) => updateUserList(u);
 
-  // If NOT authenticated
+  const handleToggleRecurring = (id: string) => {
+      const booking = bookings.find(b => b.id === id);
+      if (booking) toggleBookingRecurring(id, booking.isRecurring);
+  };
+
+  const handleUpdateBooking = (updated: Booking) => {
+      updateBooking(updated);
+      handleLogActivity('BOOKING', `Reserva actualizada: ${updated.customerName}`);
+  };
+
+  const handleAddBooking = (newBooking: Booking) => {
+      addBooking(newBooking);
+      handleLogActivity('BOOKING', `Nueva reserva creada: ${newBooking.customerName}`, newBooking.price);
+  };
+
+  const handleProcessSale = (items: CartItem[], total: number, method: PaymentMethod) => {
+      items.forEach(item => {
+        const product = products.find(p => p.id === item.id);
+        if (product) updateStock(product.id, product.stock - item.quantity);
+      });
+      handleLogActivity('SALE', `Venta POS (${items.length} items) - ${method}`, total);
+  };
+
+  const handleAddProduct = (p: Product) => {
+      addProduct(p);
+      handleLogActivity('STOCK', `Producto agregado: ${p.name}`);
+  };
+  
+  const handleUpdateProduct = (p: Product) => {
+      updateProduct(p);
+      handleLogActivity('STOCK', `Producto actualizado: ${p.name}`);
+  };
+
+  const handleDeleteProduct = (id: string) => {
+      deleteProduct(id);
+      handleLogActivity('STOCK', `Producto eliminado`);
+  };
+
+  const handleUpdateConfig = (newConfig: ClubConfig) => updateConfig(newConfig);
+  const handleUpdateCourts = (newCourtsList: Court[]) => updateCourtsList(newCourtsList);
+  const handleUpdateUsers = (newUsersList: User[]) => updateUserList(newUsersList);
+
   if (!user) {
     const theme = COLOR_THEMES[config.courtColorTheme];
-    
-    // Check if we should show Login form or Public View (Default)
     if (showLogin) {
         return (
             <div className={`min-h-screen bg-slate-950 flex items-center justify-center p-4 relative overflow-hidden`}>
                 <div className={`absolute inset-0 bg-gradient-to-br ${theme.gradient} opacity-50`}></div>
                 <div className="bg-slate-900 border border-white/10 p-8 rounded-2xl w-full max-w-md shadow-2xl relative z-10 backdrop-blur-xl animate-in fade-in zoom-in-95">
-                    <button 
-                        onClick={() => setShowLogin(false)} 
-                        className="absolute top-4 left-4 text-slate-400 hover:text-white flex items-center gap-1 text-xs font-bold"
-                    >
-                        <ArrowLeft size={16}/> Volver al sitio
-                    </button>
-
+                    <button onClick={() => setShowLogin(false)} className="absolute top-4 left-4 text-slate-400 hover:text-white flex items-center gap-1 text-xs font-bold"><ArrowLeft size={16}/> Volver</button>
                     <div className="text-center mb-8 mt-4">
                         <div className={`w-16 h-16 ${theme.primary} rounded-2xl mx-auto flex items-center justify-center mb-4 shadow-lg shadow-blue-500/20`}>
                             {config.logoUrl ? <img src={config.logoUrl} className="w-full h-full object-cover rounded-2xl"/> : <LayoutGrid className="text-white h-8 w-8" />}
@@ -919,54 +881,25 @@ const App = () => {
                     <form onSubmit={handleLogin} className="space-y-4">
                         <div>
                             <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Usuario</label>
-                            <input 
-                                type="text" 
-                                value={username}
-                                onChange={e => setUsername(e.target.value)}
-                                className="w-full bg-slate-800 border border-white/10 rounded-xl p-3 text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-                                placeholder="Ingrese su usuario"
-                            />
+                            <input type="text" value={username} onChange={e => setUsername(e.target.value)} className="w-full bg-slate-800 border border-white/10 rounded-xl p-3 text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all" placeholder="Ingrese su usuario"/>
                         </div>
                         <div>
                             <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Contraseña</label>
-                            <input 
-                                type="password" 
-                                value={password}
-                                onChange={e => setPassword(e.target.value)}
-                                className="w-full bg-slate-800 border border-white/10 rounded-xl p-3 text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-                                placeholder="Ingrese su contraseña"
-                            />
+                            <input type="password" value={password} onChange={e => setPassword(e.target.value)} className="w-full bg-slate-800 border border-white/10 rounded-xl p-3 text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all" placeholder="Ingrese su contraseña"/>
                         </div>
                         {loginError && <p className="text-red-400 text-sm text-center">{loginError}</p>}
-                        <button type="submit" className={`w-full ${theme.primary} text-white font-bold py-3 rounded-xl shadow-lg hover:opacity-90 transition-all active:scale-95`}>
-                            Ingresar
-                        </button>
+                        <button type="submit" className={`w-full ${theme.primary} text-white font-bold py-3 rounded-xl shadow-lg hover:opacity-90 transition-all active:scale-95`}>Ingresar</button>
                     </form>
-                    <div className="mt-6 text-center">
-                    <p className="text-xs text-slate-600">Usuarios por defecto creados al inicio.</p>
-                    </div>
+                    <div className="mt-6 text-center"><p className="text-xs text-slate-600">Usuarios por defecto creados al inicio.</p></div>
                 </div>
             </div>
         );
     }
 
-    // Default: Public View
     return (
         <div className="relative h-screen w-full">
-            <PublicBookingView 
-                config={config} 
-                courts={courts} 
-                bookings={bookings} 
-                onAddBooking={handleAddBooking} 
-            />
-            {/* Hidden/Subtle Admin Login Trigger */}
-            <button 
-                onClick={() => setShowLogin(true)}
-                className="absolute top-4 right-4 z-50 p-2 text-white/10 hover:text-white/50 transition-colors rounded-full"
-                title="Acceso Admin"
-            >
-                <Lock size={16}/>
-            </button>
+            <PublicBookingView config={config} courts={courts} bookings={bookings} onAddBooking={handleAddBooking} />
+            <button onClick={() => setShowLogin(true)} className="absolute top-4 right-4 z-50 p-2 text-white/10 hover:text-white/50 transition-colors rounded-full" title="Acceso Admin"><Lock size={16}/></button>
         </div>
     );
   }
@@ -974,61 +907,15 @@ const App = () => {
   return (
     <>
         <NotificationToast message={toast} onClose={() => setToast(null)} />
-        <Layout 
-            activeView={activeView} 
-            onChangeView={setActiveView} 
-            config={config} 
-            role={user.role} 
-            onLogout={handleLogout}
-        >
+        <Layout activeView={activeView} onChangeView={setActiveView} config={config} role={user.role} onLogout={handleLogout}>
             {activeView === 'dashboard' && <Dashboard bookings={bookings} products={products} config={config} />}
-            {activeView === 'bookings' && (
-                <BookingModule 
-                    bookings={bookings} 
-                    courts={courts} 
-                    config={config}
-                    onUpdateStatus={handleUpdateStatus}
-                    onToggleRecurring={handleToggleRecurring}
-                    onUpdateBooking={handleUpdateBooking}
-                    onAddBooking={handleAddBooking}
-                />
-            )}
-            {activeView === 'pos' && (
-                <POSModule 
-                    products={products} 
-                    config={config} 
-                    onProcessSale={handleProcessSale}
-                />
-            )}
-            {activeView === 'inventory' && (
-                <InventoryModule 
-                    products={products}
-                    config={config}
-                    onAddProduct={handleAddProduct}
-                    onUpdateProduct={handleUpdateProduct}
-                    onDeleteProduct={handleDeleteProduct}
-                />
-            )}
+            {activeView === 'bookings' && <BookingModule bookings={bookings} courts={courts} config={config} onUpdateStatus={handleUpdateStatus} onToggleRecurring={handleToggleRecurring} onUpdateBooking={handleUpdateBooking} onAddBooking={handleAddBooking} />}
+            {activeView === 'pos' && <POSModule products={products} config={config} onProcessSale={handleProcessSale} />}
+            {activeView === 'inventory' && <InventoryModule products={products} config={config} onAddProduct={handleAddProduct} onUpdateProduct={handleUpdateProduct} onDeleteProduct={handleDeleteProduct} />}
             {activeView === 'activity' && <ActivityModule activities={activities} config={config} />}
             {activeView === 'cashbox' && <CashboxView config={config} role={user.role} onLogActivity={handleLogActivity} />}
-            {activeView === 'settings' && (
-                <SettingsView 
-                    config={config} 
-                    courts={courts} 
-                    users={users}
-                    onUpdateConfig={handleUpdateConfig} 
-                    onUpdateCourts={handleUpdateCourts}
-                    onUpdateUsers={handleUpdateUsers}
-                />
-            )}
-            {activeView === 'public' && (
-                 <PublicBookingView 
-                    config={config} 
-                    courts={courts} 
-                    bookings={bookings} 
-                    onAddBooking={handleAddBooking} 
-                 />
-            )}
+            {activeView === 'settings' && <SettingsView config={config} courts={courts} users={users} onUpdateConfig={handleUpdateConfig} onUpdateCourts={handleUpdateCourts} onUpdateUsers={handleUpdateUsers} />}
+            {activeView === 'public' && <PublicBookingView config={config} courts={courts} bookings={bookings} onAddBooking={handleAddBooking} />}
         </Layout>
     </>
   );
