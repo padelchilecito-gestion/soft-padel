@@ -33,7 +33,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ bookings, products, config
       </header>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         <StatCard 
           title="Ingresos del Día" 
           value={`$${totalRevenue.toLocaleString()}`} 
@@ -46,13 +46,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ bookings, products, config
           value={bookings.filter(b => b.status === 'Confirmado').length.toString()} 
           icon={<CalendarClock className={theme.accent} />} 
           change="+4"
-          theme={theme}
-        />
-        <StatCard 
-          title="Nuevos Clientes" 
-          value="12" 
-          icon={<Users className="text-blue-400" />} 
-          change="+2"
           theme={theme}
         />
         <StatCard 
