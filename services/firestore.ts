@@ -12,9 +12,17 @@ const ACTIVITY_COL = 'activity_logs';
 const CONFIG_COL = 'club_config';
 const CONFIG_DOC_ID = 'main_config';
 
+// --- HELPER PARA EVITAR ERROR "UNDEFINED" ---
+const sanitize = (data: any) => {
+    const cleanData = { ...data };
+    Object.keys(cleanData).forEach(key => {
+        if (cleanData[key] === undefined) cleanData[key] = null;
+    });
+    return cleanData;
+};
+
 // --- BOOKINGS ---
 export const subscribeBookings = (callback: (data: Booking[]) => void) => {
-    // In a real app you might want to filter by date range to save reads
     const q = query(collection(db, BOOKINGS_COL));
     return onSnapshot(q, (snapshot) => {
         const bookings = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Booking));
@@ -23,18 +31,18 @@ export const subscribeBookings = (callback: (data: Booking[]) => void) => {
 };
 
 export const addBooking = async (booking: Booking) => {
-    // We use setDoc with booking.id if provided, or addDoc if not
+    const dataToSave = sanitize(booking);
     if (booking.id && !booking.id.startsWith('temp')) {
-        await setDoc(doc(db, BOOKINGS_COL, booking.id), booking);
+        await setDoc(doc(db, BOOKINGS_COL, booking.id), dataToSave);
     } else {
-        const { id, ...rest } = booking;
+        const { id, ...rest } = dataToSave;
         await addDoc(collection(db, BOOKINGS_COL), rest);
     }
 };
 
 export const updateBooking = async (booking: Booking) => {
     const ref = doc(db, BOOKINGS_COL, booking.id);
-    await updateDoc(ref, { ...booking });
+    await updateDoc(ref, sanitize(booking));
 };
 
 export const updateBookingStatus = async (id: string, status: BookingStatus) => {
@@ -57,13 +65,13 @@ export const subscribeProducts = (callback: (data: Product[]) => void) => {
 };
 
 export const addProduct = async (product: Product) => {
-    const { id, ...rest } = product;
+    const { id, ...rest } = sanitize(product);
     await addDoc(collection(db, PRODUCTS_COL), rest);
 };
 
 export const updateProduct = async (product: Product) => {
     const ref = doc(db, PRODUCTS_COL, product.id);
-    await updateDoc(ref, { ...product });
+    await updateDoc(ref, sanitize(product));
 };
 
 export const deleteProduct = async (id: string) => {
@@ -80,23 +88,14 @@ export const subscribeCourts = (callback: (data: Court[]) => void) => {
     const q = query(collection(db, COURTS_COL), orderBy('name'));
     return onSnapshot(q, (snapshot) => {
         const courts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Court));
-        // Fallback for initial load
-        if (courts.length === 0) {
-            // Optional: Seed courts if empty
-        }
         callback(courts);
     });
 };
 
 export const updateCourtsList = async (courts: Court[]) => {
-    // This is a bit complex because we need to sync a list. 
-    // For simplicity in this app, we handle individual add/update/delete 
-    // or we can just blindly overwrite documents.
-    // Better strategy: The UI calls specific functions.
-    // But since the UI passes the whole list, let's just update each doc.
     for (const c of courts) {
         const ref = doc(db, COURTS_COL, c.id);
-        await setDoc(ref, c);
+        await setDoc(ref, sanitize(c));
     }
 };
 
@@ -109,10 +108,9 @@ export const subscribeUsers = (callback: (data: User[]) => void) => {
 };
 
 export const updateUserList = async (users: User[]) => {
-    // Simplification: Upsert users
     for (const u of users) {
         const ref = doc(db, USERS_COL, u.id);
-        await setDoc(ref, u);
+        await setDoc(ref, sanitize(u));
     }
 };
 
@@ -120,22 +118,21 @@ export const deleteUser = async (id: string) => {
     await deleteDoc(doc(db, USERS_COL, id));
 };
 
-
 // --- CONFIG ---
 export const subscribeConfig = (callback: (data: ClubConfig) => void) => {
     return onSnapshot(doc(db, CONFIG_COL, CONFIG_DOC_ID), (docSnap) => {
         if (docSnap.exists()) {
             callback(docSnap.data() as ClubConfig);
         } else {
-            // Create default if not exists
-            setDoc(doc(db, CONFIG_COL, CONFIG_DOC_ID), INITIAL_CONFIG);
+            // Seeding inicial sanitizado
+            setDoc(doc(db, CONFIG_COL, CONFIG_DOC_ID), sanitize(INITIAL_CONFIG));
             callback(INITIAL_CONFIG);
         }
     });
 };
 
 export const updateConfig = async (config: ClubConfig) => {
-    await setDoc(doc(db, CONFIG_COL, CONFIG_DOC_ID), config);
+    await setDoc(doc(db, CONFIG_COL, CONFIG_DOC_ID), sanitize(config));
 };
 
 // --- ACTIVITY ---
@@ -148,7 +145,7 @@ export const subscribeActivity = (callback: (data: ActivityLogEntry[]) => void) 
 };
 
 export const logActivity = async (entry: ActivityLogEntry) => {
-    const { id, ...rest } = entry;
+    const { id, ...rest } = sanitize(entry);
     await addDoc(collection(db, ACTIVITY_COL), rest);
 };
 
@@ -157,12 +154,12 @@ export const seedDatabase = async () => {
     const usersSnap = await getDocs(collection(db, USERS_COL));
     if (usersSnap.empty) {
         console.log("Seeding Users...");
-        for (const u of MOCK_USERS) await setDoc(doc(db, USERS_COL, u.id), u);
+        for (const u of MOCK_USERS) await setDoc(doc(db, USERS_COL, u.id), sanitize(u));
     }
 
     const courtsSnap = await getDocs(collection(db, COURTS_COL));
     if (courtsSnap.empty) {
         console.log("Seeding Courts...");
-        for (const c of MOCK_COURTS) await setDoc(doc(db, COURTS_COL, c.id), c);
+        for (const c of MOCK_COURTS) await setDoc(doc(db, COURTS_COL, c.id), sanitize(c));
     }
 };
