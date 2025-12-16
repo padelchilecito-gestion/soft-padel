@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { LayoutDashboard, Calendar, ShoppingCart, DollarSign, Settings, Users, Menu, LogOut, Sun, Package, ClipboardList } from 'lucide-react';
 import { ClubConfig } from '../types';
@@ -24,7 +25,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, activeView, onChangeVi
     { id: 'inventory', icon: Package, label: 'Inventario', roles: ['ADMIN'] },
     { id: 'cashbox', icon: DollarSign, label: 'Caja', roles: ['ADMIN', 'OPERATOR'] },
     { id: 'settings', icon: Settings, label: 'Configuración', roles: ['ADMIN'] },
-    { id: 'public', icon: Users, label: 'Vista Pública (Demo)', roles: ['ADMIN', 'OPERATOR'] },
+    { id: 'public', icon: Users, label: 'Vista Pública', roles: ['ADMIN', 'OPERATOR'] },
   ];
 
   return (

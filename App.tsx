@@ -930,6 +930,7 @@ const App = () => {
   // State
   const [user, setUser] = useState<User | null>(null);
   const [activeView, setActiveView] = useState('dashboard');
+  const [showLogin, setShowLogin] = useState(false); // New state to toggle login
   
   // Data State (initialized with Mocks)
   const [bookings, setBookings] = useState<Booking[]>(generateMockBookings());
@@ -981,6 +982,7 @@ const App = () => {
       setUsername('');
       setPassword('');
       setActiveView('dashboard');
+      setShowLogin(false); // Reset to public view
   };
 
   const handleLogActivity = (type: ActivityType, description: string, amount?: number) => {
@@ -1050,50 +1052,81 @@ const App = () => {
       handleLogActivity('STOCK', `Producto eliminado`);
   };
 
-  // Login Screen
+  // If NOT authenticated
   if (!user) {
     const theme = COLOR_THEMES[config.courtColorTheme];
-    return (
-        <div className={`min-h-screen bg-slate-950 flex items-center justify-center p-4 relative overflow-hidden`}>
-            <div className={`absolute inset-0 bg-gradient-to-br ${theme.gradient} opacity-50`}></div>
-            <div className="bg-slate-900 border border-white/10 p-8 rounded-2xl w-full max-w-md shadow-2xl relative z-10 backdrop-blur-xl">
-                <div className="text-center mb-8">
-                    <div className={`w-16 h-16 ${theme.primary} rounded-2xl mx-auto flex items-center justify-center mb-4 shadow-lg shadow-blue-500/20`}>
-                        {config.logoUrl ? <img src={config.logoUrl} className="w-full h-full object-cover rounded-2xl"/> : <LayoutGrid className="text-white h-8 w-8" />}
-                    </div>
-                    <h1 className="text-2xl font-bold text-white">{config.name}</h1>
-                    <p className="text-slate-400">Sistema de Gestión</p>
-                </div>
-                <form onSubmit={handleLogin} className="space-y-4">
-                    <div>
-                        <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Usuario</label>
-                        <input 
-                            type="text" 
-                            value={username}
-                            onChange={e => setUsername(e.target.value)}
-                            className="w-full bg-slate-800 border border-white/10 rounded-xl p-3 text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-                            placeholder="Ingrese su usuario"
-                        />
-                    </div>
-                    <div>
-                        <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Contraseña</label>
-                        <input 
-                            type="password" 
-                            value={password}
-                            onChange={e => setPassword(e.target.value)}
-                            className="w-full bg-slate-800 border border-white/10 rounded-xl p-3 text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-                            placeholder="Ingrese su contraseña"
-                        />
-                    </div>
-                    {loginError && <p className="text-red-400 text-sm text-center">{loginError}</p>}
-                    <button type="submit" className={`w-full ${theme.primary} text-white font-bold py-3 rounded-xl shadow-lg hover:opacity-90 transition-all active:scale-95`}>
-                        Ingresar
+    
+    // Check if we should show Login form or Public View (Default)
+    if (showLogin) {
+        return (
+            <div className={`min-h-screen bg-slate-950 flex items-center justify-center p-4 relative overflow-hidden`}>
+                <div className={`absolute inset-0 bg-gradient-to-br ${theme.gradient} opacity-50`}></div>
+                <div className="bg-slate-900 border border-white/10 p-8 rounded-2xl w-full max-w-md shadow-2xl relative z-10 backdrop-blur-xl animate-in fade-in zoom-in-95">
+                    <button 
+                        onClick={() => setShowLogin(false)} 
+                        className="absolute top-4 left-4 text-slate-400 hover:text-white flex items-center gap-1 text-xs font-bold"
+                    >
+                        <ArrowLeft size={16}/> Volver al sitio
                     </button>
-                </form>
-                <div className="mt-6 text-center">
-                   <p className="text-xs text-slate-600">Usuarios Demo: admin / operador (pass: 123)</p>
+
+                    <div className="text-center mb-8 mt-4">
+                        <div className={`w-16 h-16 ${theme.primary} rounded-2xl mx-auto flex items-center justify-center mb-4 shadow-lg shadow-blue-500/20`}>
+                            {config.logoUrl ? <img src={config.logoUrl} className="w-full h-full object-cover rounded-2xl"/> : <LayoutGrid className="text-white h-8 w-8" />}
+                        </div>
+                        <h1 className="text-2xl font-bold text-white">{config.name}</h1>
+                        <p className="text-slate-400">Acceso Administrativo</p>
+                    </div>
+                    <form onSubmit={handleLogin} className="space-y-4">
+                        <div>
+                            <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Usuario</label>
+                            <input 
+                                type="text" 
+                                value={username}
+                                onChange={e => setUsername(e.target.value)}
+                                className="w-full bg-slate-800 border border-white/10 rounded-xl p-3 text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                                placeholder="Ingrese su usuario"
+                            />
+                        </div>
+                        <div>
+                            <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Contraseña</label>
+                            <input 
+                                type="password" 
+                                value={password}
+                                onChange={e => setPassword(e.target.value)}
+                                className="w-full bg-slate-800 border border-white/10 rounded-xl p-3 text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                                placeholder="Ingrese su contraseña"
+                            />
+                        </div>
+                        {loginError && <p className="text-red-400 text-sm text-center">{loginError}</p>}
+                        <button type="submit" className={`w-full ${theme.primary} text-white font-bold py-3 rounded-xl shadow-lg hover:opacity-90 transition-all active:scale-95`}>
+                            Ingresar
+                        </button>
+                    </form>
+                    <div className="mt-6 text-center">
+                    <p className="text-xs text-slate-600">Usuarios Demo: admin / operador (pass: 123)</p>
+                    </div>
                 </div>
             </div>
+        );
+    }
+
+    // Default: Public View
+    return (
+        <div className="relative h-screen w-full">
+            <PublicBookingView 
+                config={config} 
+                courts={courts} 
+                bookings={bookings} 
+                onAddBooking={handleAddBooking} 
+            />
+            {/* Hidden/Subtle Admin Login Trigger */}
+            <button 
+                onClick={() => setShowLogin(true)}
+                className="absolute top-4 right-4 z-50 p-2 text-white/10 hover:text-white/50 transition-colors rounded-full"
+                title="Acceso Admin"
+            >
+                <Lock size={16}/>
+            </button>
         </div>
     );
   }
