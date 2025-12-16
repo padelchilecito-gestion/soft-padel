@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, User, Phone, CheckCircle, ArrowLeft, Calendar, Clock, MapPin, DollarSign, MessageCircle, Info, Sparkles, ExternalLink, Gift, Flame, Moon, Map } from 'lucide-react';
 import { Court, Booking, ClubConfig, BookingStatus } from '../types';
@@ -573,7 +572,7 @@ export const PublicBookingView: React.FC<PublicBookingViewProps> = ({ config, co
 
                     {/* FOOTER SUMMARY */}
                     {step !== 'DATE' && (
-                        <div className="bg-slate-900/80 backdrop-blur-xl border-t border-white/10 p-4 shrink-0 safe-area-bottom z-20">
+                        <div className="bg-slate-900/80 backdrop-blur-xl border-t border-white/10 p-4 pb-12 md:pb-4 shrink-0 safe-area-bottom z-20">
                             {promoStatus.eligible && (
                                 <div className="mb-3 flex items-center gap-2 justify-center text-xs font-bold text-orange-300 animate-pulse">
                                     <Flame size={14}/> <span>{config.promoText || 'Promo Activada'}</span>
