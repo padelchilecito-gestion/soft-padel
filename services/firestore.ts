@@ -1,14 +1,14 @@
 import { db } from '../firebaseConfig';
 import { collection, doc, setDoc, addDoc, updateDoc, deleteDoc, onSnapshot, query, orderBy, getDocs } from 'firebase/firestore';
-import { Booking, Product, Court, User, ActivityLogEntry, ClubConfig, BookingStatus } from '../types';
+import { Booking, Product, Court, User, ActivityLogEntry, ClubConfig, BookingStatus, Expense } from '../types';
 import { MOCK_USERS, MOCK_COURTS, INITIAL_CONFIG } from '../constants';
 
-// --- COLLECTIONS ---
 const BOOKINGS_COL = 'bookings';
 const PRODUCTS_COL = 'products';
 const COURTS_COL = 'courts';
 const USERS_COL = 'users';
 const ACTIVITY_COL = 'activity_logs';
+const EXPENSES_COL = 'expenses'; // <--- NUEVA COLECCIÓN
 const CONFIG_COL = 'club_config';
 const CONFIG_DOC_ID = 'main_config';
 
@@ -46,27 +46,20 @@ const deserializeConfig = (data: any): ClubConfig => {
         }
         config.schedule = scheduleArray;
     }
+    if (!config.mpAlias) config.mpAlias = INITIAL_CONFIG.mpAlias || '';
     return config;
 };
 
-// --- BOOKINGS (MODIFICADO PARA DETECTAR NUEVAS) ---
-export const subscribeBookings = (
-    callback: (data: Booking[]) => void, 
-    onNewBooking?: (booking: Booking) => void
-) => {
+// --- BOOKINGS ---
+export const subscribeBookings = (callback: (data: Booking[]) => void, onNewBooking?: (booking: Booking) => void) => {
     const q = query(collection(db, BOOKINGS_COL));
     let isFirstLoad = true;
-
     return onSnapshot(q, (snapshot) => {
         const bookings = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Booking));
         callback(bookings);
-
-        // Detectar cambios (nuevas reservas) después de la carga inicial
         if (!isFirstLoad && onNewBooking) {
             snapshot.docChanges().forEach((change) => {
-                if (change.type === 'added') {
-                    onNewBooking({ id: change.doc.id, ...change.doc.data() } as Booking);
-                }
+                if (change.type === 'added') onNewBooking({ id: change.doc.id, ...change.doc.data() } as Booking);
             });
         }
         isFirstLoad = false;
@@ -87,20 +80,23 @@ export const updateBooking = async (b: Booking) => updateDoc(doc(db, BOOKINGS_CO
 export const updateBookingStatus = async (id: string, status: BookingStatus) => updateDoc(doc(db, BOOKINGS_COL, id), { status });
 export const toggleBookingRecurring = async (id: string, v: boolean) => updateDoc(doc(db, BOOKINGS_COL, id), { isRecurring: !v });
 
-// --- OTROS SERVICIOS (Sin cambios mayores) ---
+// --- PRODUCTS ---
 export const subscribeProducts = (cb: (d: Product[]) => void) => onSnapshot(query(collection(db, PRODUCTS_COL), orderBy('name')), (s) => cb(s.docs.map(d => ({ id: d.id, ...d.data() } as Product))));
 export const addProduct = async (p: Product) => { const { id, ...r } = sanitize(p); await addDoc(collection(db, PRODUCTS_COL), r); };
 export const updateProduct = async (p: Product) => updateDoc(doc(db, PRODUCTS_COL, p.id), sanitize(p));
 export const deleteProduct = async (id: string) => deleteDoc(doc(db, PRODUCTS_COL, id));
 export const updateStock = async (id: string, n: number) => updateDoc(doc(db, PRODUCTS_COL, id), { stock: n });
 
+// --- COURTS ---
 export const subscribeCourts = (cb: (d: Court[]) => void) => onSnapshot(query(collection(db, COURTS_COL), orderBy('name')), (s) => cb(s.docs.map(d => ({ id: d.id, ...d.data() } as Court))));
 export const updateCourtsList = async (courts: Court[]) => { for (const c of courts) await setDoc(doc(db, COURTS_COL, c.id), sanitize(c)); };
 
+// --- USERS ---
 export const subscribeUsers = (cb: (d: User[]) => void) => onSnapshot(collection(db, USERS_COL), (s) => cb(s.docs.map(d => ({ id: d.id, ...d.data() } as User))));
 export const updateUserList = async (users: User[]) => { for (const u of users) await setDoc(doc(db, USERS_COL, u.id), sanitize(u)); };
 export const deleteUser = async (id: string) => deleteDoc(doc(db, USERS_COL, id));
 
+// --- CONFIG ---
 export const subscribeConfig = (callback: (data: ClubConfig) => void) => {
     return onSnapshot(doc(db, CONFIG_COL, CONFIG_DOC_ID), (docSnap) => {
         if (docSnap.exists()) {
@@ -112,12 +108,18 @@ export const subscribeConfig = (callback: (data: ClubConfig) => void) => {
         }
     });
 };
-
 export const updateConfig = async (config: ClubConfig) => setDoc(doc(db, CONFIG_COL, CONFIG_DOC_ID), serializeConfig(config));
 
+// --- ACTIVITY ---
 export const subscribeActivity = (cb: (d: ActivityLogEntry[]) => void) => onSnapshot(query(collection(db, ACTIVITY_COL), orderBy('timestamp', 'desc')), (s) => cb(s.docs.map(d => ({ id: d.id, ...d.data() } as ActivityLogEntry))));
 export const logActivity = async (entry: ActivityLogEntry) => { const { id, ...r } = sanitize(entry); await addDoc(collection(db, ACTIVITY_COL), r); };
 
+// --- GASTOS (NUEVO) ---
+export const subscribeExpenses = (cb: (d: Expense[]) => void) => onSnapshot(query(collection(db, EXPENSES_COL), orderBy('date', 'desc')), (s) => cb(s.docs.map(d => ({ id: d.id, ...d.data() } as Expense))));
+export const addExpense = async (e: Expense) => { const { id, ...r } = sanitize(e); await addDoc(collection(db, EXPENSES_COL), r); };
+export const deleteExpense = async (id: string) => deleteDoc(doc(db, EXPENSES_COL, id));
+
+// --- SEED ---
 export const seedDatabase = async () => {
     try {
         const uSnap = await getDocs(collection(db, USERS_COL));
