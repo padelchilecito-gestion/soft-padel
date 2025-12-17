@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Search, ShoppingCart, Trash2, Plus, Minus, CreditCard, Banknote, QrCode, X, Copy, Share2, Check, AlertTriangle } from 'lucide-react';
+import { Search, ShoppingCart, Trash2, Plus, Minus, CreditCard, Banknote, QrCode, AlertTriangle, X, Copy, Share2, Check, Loader2 } from 'lucide-react';
 import { Product, CartItem, ClubConfig, PaymentMethod } from '../types';
 import { COLOR_THEMES } from '../constants';
+import { createCartPreference } from '../services/mercadopago';
 
 interface POSModuleProps {
   products: Product[];
@@ -9,7 +10,6 @@ interface POSModuleProps {
   onProcessSale: (items: CartItem[], total: number, method: PaymentMethod) => void;
 }
 
-// Helper seguro para formato de dinero
 const formatMoney = (amount?: number | null) => {
     return (amount || 0).toLocaleString();
 };
@@ -21,20 +21,18 @@ export const POSModule: React.FC<POSModuleProps> = ({ products, config, onProces
   
   // Payment Modal State
   const [paymentModal, setPaymentModal] = useState<{ isOpen: boolean, type: PaymentMethod | null }>({ isOpen: false, type: null });
+  const [qrUrl, setQrUrl] = useState<string | null>(null);
+  const [isLoadingQr, setIsLoadingQr] = useState(false);
 
   const theme = COLOR_THEMES[config.courtColorTheme];
   const categories: string[] = ['all', ...Array.from(new Set(products.map((p) => p.category))) as string[]];
 
   const addToCart = (product: Product) => {
     if (product.stock <= 0) return alert("No hay stock disponible.");
-
     setCart(prev => {
       const existing = prev.find(item => item.id === product.id);
       if (existing) {
-        if (existing.quantity >= product.stock) {
-             alert(`Stock máximo alcanzado (${product.stock})`);
-             return prev;
-        }
+        if (existing.quantity >= product.stock) { alert(`Stock máximo alcanzado (${product.stock})`); return prev; }
         return prev.map(item => item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item);
       }
       return [...prev, { ...product, quantity: 1 }];
@@ -51,11 +49,7 @@ export const POSModule: React.FC<POSModuleProps> = ({ products, config, onProces
         const original = products.find(p => p.id === productId);
         const maxStock = original ? original.stock : item.stock;
         const newQty = item.quantity + delta;
-        
-        if (delta > 0 && newQty > maxStock) {
-            alert(`No puedes superar el stock (${maxStock})`);
-            return item;
-        }
+        if (delta > 0 && newQty > maxStock) { alert(`No puedes superar el stock (${maxStock})`); return item; }
         return { ...item, quantity: Math.max(1, newQty) };
       }
       return item;
@@ -64,7 +58,7 @@ export const POSModule: React.FC<POSModuleProps> = ({ products, config, onProces
 
   const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
   
-  // Cálculo del total con recargo (si aplica)
+  // Cálculo del total con recargo
   const feePercentage = config.mpFeePercentage || 0;
   const surcharge = paymentModal.type === PaymentMethod.QR ? (total * feePercentage / 100) : 0;
   const finalTotal = total + surcharge;
@@ -74,16 +68,22 @@ export const POSModule: React.FC<POSModuleProps> = ({ products, config, onProces
     p.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const handlePaymentClick = (method: PaymentMethod) => {
+  const handlePaymentClick = async (method: PaymentMethod) => {
       if (method === PaymentMethod.CASH) {
-          // Efectivo: Proceso directo
           if (confirm(`¿Confirmar venta por $${formatMoney(total)} en Efectivo?`)) {
               onProcessSale(cart, total, method);
               setCart([]);
           }
       } else {
-          // Transferencia o QR: Abrir modal
           setPaymentModal({ isOpen: true, type: method });
+          setQrUrl(null);
+          
+          if (method === PaymentMethod.QR) {
+              setIsLoadingQr(true);
+              const url = await createCartPreference(cart, feePercentage);
+              setQrUrl(url);
+              setIsLoadingQr(false);
+          }
       }
   };
 
@@ -184,37 +184,71 @@ export const POSModule: React.FC<POSModuleProps> = ({ products, config, onProces
                       <h3 className="text-xl font-bold text-white mb-1">
                           {paymentModal.type === PaymentMethod.QR ? 'Cobro con QR' : 'Transferencia'}
                       </h3>
-                      {paymentModal.type === PaymentMethod.QR && feePercentage > 0 && (
-                          <div className="text-xs text-orange-400 mb-1 font-bold">Incluye {feePercentage}% de recargo</div>
+                      
+                      {/* Recargo Comisión */}
+                      {paymentModal.type === PaymentMethod.QR && (config.mpFeePercentage || 0) > 0 && (
+                          <div className="text-xs text-orange-400 mb-2 font-bold bg-orange-500/10 px-2 py-1 rounded inline-block border border-orange-500/20">
+                             Recargo: {config.mpFeePercentage}% aplicado
+                          </div>
                       )}
+
                       <p className="text-slate-400 text-sm">
                           Total a cobrar: <span className="text-white font-bold text-lg">${formatMoney(finalTotal)}</span>
                       </p>
                   </div>
 
+                  {/* QR CONTENT */}
                   {paymentModal.type === PaymentMethod.QR && (
-                      <div className="bg-white p-4 rounded-xl mb-6 mx-auto w-fit shadow-inner">
-                          <img src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=Pago%20de%20$${finalTotal}%20en%20PadelManager`} alt="QR de Pago" className="w-48 h-48 object-contain" />
-                          <p className="text-black/50 text-[10px] text-center mt-2 font-mono">Escanea con Mercado Pago</p>
+                      <div className="bg-white p-4 rounded-xl mb-6 mx-auto w-fit shadow-inner min-h-[230px] flex flex-col items-center justify-center">
+                          {isLoadingQr ? (
+                              <div className="flex flex-col items-center animate-pulse">
+                                  <Loader2 className="animate-spin text-blue-500 mb-2" size={32}/>
+                                  <span className="text-xs text-slate-500 font-bold">Generando QR...</span>
+                              </div>
+                          ) : qrUrl ? (
+                              <>
+                                  <img 
+                                      src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrUrl)}`}
+                                      alt="QR de Pago" 
+                                      className="w-48 h-48 object-contain"
+                                  />
+                                  <p className="text-black/50 text-[10px] text-center mt-2 font-mono">Escanea para pagar</p>
+                              </>
+                          ) : (
+                              <p className="text-red-500 text-xs font-bold text-center">Error al generar QR. <br/> Revisa el token.</p>
+                          )}
                       </div>
                   )}
 
+                  {/* TRANSFER CONTENT */}
                   {paymentModal.type === PaymentMethod.TRANSFER && (
                       <div className="space-y-4 mb-6">
                           <div className="bg-slate-800/50 p-4 rounded-xl border border-white/5 text-center">
-                              <p className="text-xs text-slate-500 uppercase font-bold mb-1">Alias</p>
+                              <p className="text-xs text-slate-500 uppercase font-bold mb-1">Alias / CBU</p>
                               <div className="flex items-center justify-center gap-2">
-                                  <span className="text-xl font-mono text-white font-bold tracking-wider">{config.mpAlias || 'NO-CONFIG'}</span>
-                                  <button onClick={() => navigator.clipboard.writeText(config.mpAlias || '')} className="text-slate-400 hover:text-white p-1"><Copy size={14}/></button>
+                                  <span className="text-xl font-mono text-white font-bold tracking-wider select-all">
+                                      {config.mpAlias || 'SIN ALIAS'}
+                                  </span>
+                                  <button onClick={() => navigator.clipboard.writeText(config.mpAlias || '')} className="text-slate-400 hover:text-white p-1" title="Copiar"><Copy size={14}/></button>
                               </div>
                           </div>
-                          <button onClick={() => { const text = `Hola! Aquí tienes el alias para transferir $${finalTotal}: *${config.mpAlias}*`; window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank'); }} className="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2">
+                          
+                          <button 
+                              onClick={() => {
+                                  const text = `Hola! Aquí tienes el alias para transferir el total de $${finalTotal}: *${config.mpAlias}*`;
+                                  window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+                              }}
+                              className="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2"
+                          >
                               <Share2 size={18}/> Compartir por WhatsApp
                           </button>
                       </div>
                   )}
 
-                  <button onClick={confirmModalPayment} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2">
+                  <button 
+                      onClick={confirmModalPayment}
+                      className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2"
+                  >
                       <Check size={20}/> Confirmar Cobro
                   </button>
               </div>
