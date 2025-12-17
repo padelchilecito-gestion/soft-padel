@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-// CORRECCIÓN: Se agrega 'MessageCircle' y 'CheckCircle' a los imports
-import { Clock, Check, X, RefreshCw, Plus, CalendarDays, MapPin, Edit2, Trash2, Banknote, QrCode, CreditCard, Save, AlertCircle, ChevronDown, ChevronLeft, ChevronRight, Copy, Share2, User, MessageCircle, CheckCircle } from 'lucide-react';
+import { Clock, Check, X, RefreshCw, Plus, CalendarDays, MapPin, Edit2, Trash2, Banknote, QrCode, CreditCard, Save, AlertCircle, ChevronDown, ChevronLeft, ChevronRight, Copy, Share2, User, MessageCircle, CheckCircle, Loader2 } from 'lucide-react';
 import { Booking, BookingStatus, ClubConfig, Court, PaymentMethod } from '../types';
 import { COLOR_THEMES } from '../constants';
+import { createPreference } from '../services/mercadopago';
 
 interface BookingModuleProps {
   bookings: Booking[];
@@ -27,6 +27,8 @@ export const BookingModule: React.FC<BookingModuleProps> = ({ bookings, courts, 
   
   // Payment Modal State
   const [paymentModal, setPaymentModal] = useState<{ isOpen: boolean, type: PaymentMethod | null, booking: Booking | null }>({ isOpen: false, type: null, booking: null });
+  const [qrUrl, setQrUrl] = useState<string | null>(null);
+  const [isLoadingQr, setIsLoadingQr] = useState(false);
 
   const theme = COLOR_THEMES[config.courtColorTheme];
 
@@ -55,7 +57,6 @@ export const BookingModule: React.FC<BookingModuleProps> = ({ bookings, courts, 
       setIsFormModalOpen(true);
   };
 
-  // --- LÓGICA DE GUARDADO DEL FORMULARIO ---
   const handleFormSave = (booking: Booking) => {
       if (editingBooking) {
           onUpdateBooking(booking);
@@ -65,20 +66,29 @@ export const BookingModule: React.FC<BookingModuleProps> = ({ bookings, courts, 
       setIsFormModalOpen(false);
       setEditingBooking(null);
 
-      // CORRECCIÓN: Abrir modal de pago automáticamente si se seleccionó QR o Transferencia
       if (booking.paymentMethod === PaymentMethod.QR || booking.paymentMethod === PaymentMethod.TRANSFER) {
-          // Pequeño timeout para dar sensación de guardado
-          setTimeout(() => {
-              setPaymentModal({
-                  isOpen: true,
-                  type: booking.paymentMethod!,
-                  booking: booking
-              });
-          }, 300);
+          openPaymentModal(booking, booking.paymentMethod);
       }
   };
 
-  // --- LOGICA DE BOTONES DE PAGO (DROPDOWN) ---
+  // --- PAYMENT LOGIC ---
+  const openPaymentModal = async (booking: Booking, method: PaymentMethod) => {
+      setPaymentModal({ isOpen: true, type: method, booking });
+      setQrUrl(null); // Reset QR
+
+      if (method === PaymentMethod.QR) {
+          setIsLoadingQr(true);
+          // Calcular precio con comisión
+          const fee = config.mpFeePercentage || 0;
+          const finalPrice = booking.price + (booking.price * fee / 100);
+          const title = `Reserva Cancha - ${booking.date} ${booking.time}`;
+          
+          const url = await createPreference(title, finalPrice);
+          setQrUrl(url);
+          setIsLoadingQr(false);
+      }
+  };
+
   const handlePaymentSelect = (e: React.MouseEvent, booking: Booking, method?: PaymentMethod) => {
       e.stopPropagation();
       setActiveDropdownId(null);
@@ -89,14 +99,10 @@ export const BookingModule: React.FC<BookingModuleProps> = ({ bookings, courts, 
       }
 
       if (method === PaymentMethod.CASH) {
-          const updated = { 
-              ...booking, 
-              paymentMethod: method,
-              status: BookingStatus.CONFIRMED 
-          };
+          const updated = { ...booking, paymentMethod: method, status: BookingStatus.CONFIRMED };
           onUpdateBooking(updated);
       } else {
-          setPaymentModal({ isOpen: true, type: method, booking });
+          openPaymentModal(booking, method);
       }
   };
 
@@ -316,21 +322,46 @@ export const BookingModule: React.FC<BookingModuleProps> = ({ bookings, courts, 
                       <h3 className="text-xl font-bold text-white mb-1">
                           {paymentModal.type === PaymentMethod.QR ? 'Cobro con QR' : 'Transferencia'}
                       </h3>
+                      
+                      {/* Mostrar recargo si aplica */}
+                      {paymentModal.type === PaymentMethod.QR && (config.mpFeePercentage || 0) > 0 && (
+                          <p className="text-orange-400 text-xs font-bold mb-2">
+                             (+{config.mpFeePercentage}% comisión)
+                          </p>
+                      )}
+
                       <p className="text-slate-400 text-sm">
-                          Total a cobrar: <span className="text-white font-bold text-lg">${formatMoney(paymentModal.booking.price)}</span>
+                          Total a cobrar: <span className="text-white font-bold text-lg">
+                              ${formatMoney(
+                                  paymentModal.type === PaymentMethod.QR 
+                                  ? paymentModal.booking.price * (1 + (config.mpFeePercentage || 0)/100) 
+                                  : paymentModal.booking.price
+                              )}
+                          </span>
                       </p>
                   </div>
 
                   {/* QR CONTENT */}
                   {paymentModal.type === PaymentMethod.QR && (
-                      <div className="bg-white p-4 rounded-xl mb-6 mx-auto w-fit shadow-inner">
-                          {/* Generamos un QR visual */}
-                          <img 
-                              src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=Pago%20de%20$${paymentModal.booking.price}%20en%20PadelManager`}
-                              alt="QR de Pago" 
-                              className="w-48 h-48 object-contain"
-                          />
-                          <p className="text-black/50 text-[10px] text-center mt-2 font-mono">Escanea con Mercado Pago</p>
+                      <div className="bg-white p-4 rounded-xl mb-6 mx-auto w-fit shadow-inner min-h-[230px] flex flex-col items-center justify-center">
+                          {isLoadingQr ? (
+                              <div className="flex flex-col items-center animate-pulse">
+                                  <Loader2 className="animate-spin text-blue-500 mb-2" size={32}/>
+                                  <span className="text-xs text-slate-500 font-bold">Conectando con Mercado Pago...</span>
+                              </div>
+                          ) : qrUrl ? (
+                              <>
+                                  {/* Generamos el QR visual a partir del link de MP */}
+                                  <img 
+                                      src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrUrl)}`}
+                                      alt="QR de Pago" 
+                                      className="w-48 h-48 object-contain"
+                                  />
+                                  <p className="text-black/50 text-[10px] text-center mt-2 font-mono">Escanea para pagar</p>
+                              </>
+                          ) : (
+                              <p className="text-red-500 text-xs font-bold text-center">Error al generar QR. <br/> Revisa el token en Vercel.</p>
+                          )}
                       </div>
                   )}
 
@@ -340,7 +371,6 @@ export const BookingModule: React.FC<BookingModuleProps> = ({ bookings, courts, 
                           <div className="bg-slate-800/50 p-4 rounded-xl border border-white/5 text-center">
                               <p className="text-xs text-slate-500 uppercase font-bold mb-1">Alias</p>
                               <div className="flex items-center justify-center gap-2">
-                                  {/* CORRECCIÓN: Fallback si no hay alias */}
                                   <span className="text-xl font-mono text-white font-bold tracking-wider">{config.mpAlias || 'NO-CONFIG'}</span>
                                   <button onClick={() => navigator.clipboard.writeText(config.mpAlias || '')} className="text-slate-400 hover:text-white p-1"><Copy size={14}/></button>
                               </div>
@@ -372,6 +402,7 @@ export const BookingModule: React.FC<BookingModuleProps> = ({ bookings, courts, 
 };
 
 const BookingFormModal = ({ isOpen, onClose, courts, onSave, initialDate, initialTime, editingBooking }: any) => {
+    // ... (El resto del componente sigue igual)
     const isEditMode = !!editingBooking;
     const defaultCourt = courts[0];
     const [form, setForm] = useState<Partial<Booking>>(
