@@ -21,6 +21,32 @@ const EmptyProduct: Product = {
     imageUrl: ''
 };
 
+// Helper para redimensionar imágenes y evitar errores de tamaño en Firebase
+const processImage = (file: File): Promise<string> => {
+    return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = (event) => {
+            const img = new Image();
+            img.src = event.target?.result as string;
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                const MAX_WIDTH = 500; // Reducimos a 500px para no saturar la BD
+                const scaleSize = MAX_WIDTH / img.width;
+                canvas.width = MAX_WIDTH;
+                canvas.height = img.height * scaleSize;
+                const ctx = canvas.getContext('2d');
+                if (ctx) {
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    resolve(canvas.toDataURL(file.type)); // Retorna imagen optimizada
+                } else {
+                    resolve(event.target?.result as string); // Fallback
+                }
+            };
+        };
+    });
+};
+
 export const InventoryModule: React.FC<InventoryModuleProps> = ({ products, config, onAddProduct, onUpdateProduct, onDeleteProduct }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -44,14 +70,17 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({ products, conf
       setIsModalOpen(true);
   };
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
       if (file) {
-          const reader = new FileReader();
-          reader.onloadend = () => {
-              setFormData(prev => ({ ...prev, imageUrl: reader.result as string }));
-          };
-          reader.readAsDataURL(file);
+          try {
+              // Procesamos la imagen para reducir tamaño
+              const optimizedImage = await processImage(file);
+              setFormData(prev => ({ ...prev, imageUrl: optimizedImage }));
+          } catch (error) {
+              console.error("Error procesando imagen", error);
+              alert("Error al procesar la imagen. Intenta con otra.");
+          }
       }
   };
 
@@ -240,8 +269,12 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({ products, conf
                                 ) : (
                                     <ImageIcon className="text-slate-500 group-hover:text-blue-500"/>
                                 )}
-                                <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" accept="image/*" onChange={handleImageUpload} />
-                                <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                
+                                {/* CORRECCIÓN: z-20 para que esté por encima de todo */}
+                                <input type="file" className="absolute inset-0 opacity-0 cursor-pointer z-20" accept="image/*" onChange={handleImageUpload} />
+                                
+                                {/* CORRECCIÓN: pointer-events-none para no bloquear el clic */}
+                                <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
                                     <Upload className="text-white" size={16}/>
                                 </div>
                            </div>
