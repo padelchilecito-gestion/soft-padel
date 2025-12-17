@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-// Añado el icono Banknote que faltaba importar en la lista grande
 import { Clock, Check, X, RefreshCw, Plus, CalendarDays, MapPin, Edit2, Trash2, Banknote, QrCode, CreditCard, Save, AlertCircle, ChevronDown, ChevronLeft, ChevronRight, Copy, Share2, User, MessageCircle, CheckCircle, Loader2 } from 'lucide-react';
 import { Booking, BookingStatus, ClubConfig, Court, PaymentMethod } from '../types';
 import { COLOR_THEMES } from '../constants';
@@ -24,8 +23,6 @@ export const BookingModule: React.FC<BookingModuleProps> = ({ bookings, courts, 
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [editingBooking, setEditingBooking] = useState<Booking | null>(null);
-  
-  // Control de Dropdown activo (cuál tarjeta tiene el menú abierto)
   const [activeDropdownId, setActiveDropdownId] = useState<string | null>(null);
   
   // Payment Modal State
@@ -69,8 +66,7 @@ export const BookingModule: React.FC<BookingModuleProps> = ({ bookings, courts, 
       setIsFormModalOpen(false);
       setEditingBooking(null);
 
-      // Si seleccionó un método de pago al crear, abrir el modal de cobro
-      if (booking.paymentMethod) {
+      if (booking.paymentMethod === PaymentMethod.QR || booking.paymentMethod === PaymentMethod.TRANSFER) {
           openPaymentModal(booking, booking.paymentMethod);
       }
   };
@@ -80,14 +76,12 @@ export const BookingModule: React.FC<BookingModuleProps> = ({ bookings, courts, 
       setPaymentModal({ isOpen: true, type: method, booking });
       setQrUrl(null); 
 
-      // Solo generar QR si es el método seleccionado
       if (method === PaymentMethod.QR) {
           setIsLoadingQr(true);
           const fee = config.mpFeePercentage || 0;
           const finalPrice = booking.price + (booking.price * fee / 100);
           const title = `Reserva Cancha - ${booking.date} ${booking.time}`;
           
-          // Generamos la preferencia real
           const url = await createPreference(title, finalPrice);
           setQrUrl(url);
           setIsLoadingQr(false);
@@ -95,17 +89,19 @@ export const BookingModule: React.FC<BookingModuleProps> = ({ bookings, courts, 
   };
 
   const handlePaymentSelect = (e: React.MouseEvent, booking: Booking, method?: PaymentMethod) => {
-      e.stopPropagation(); // Evitar abrir el detalle del turno
-      setActiveDropdownId(null); // Cerrar dropdown
+      e.stopPropagation();
+      setActiveDropdownId(null);
 
       if (!method) {
-          // Opción "Marcar Impago"
           onUpdateBooking({ ...booking, paymentMethod: undefined });
           return;
       }
 
-      // CORRECCIÓN: Ahora Efectivo también abre el modal en lugar del confirm nativo
-      openPaymentModal(booking, method);
+      if (method === PaymentMethod.CASH) {
+          openPaymentModal(booking, method);
+      } else {
+          openPaymentModal(booking, method);
+      }
   };
 
   const handleConfirmPayment = () => {
@@ -128,7 +124,6 @@ export const BookingModule: React.FC<BookingModuleProps> = ({ bookings, courts, 
       }
   };
 
-  // Helper para calcular precio final en el modal
   const getFinalPrice = () => {
       if (!paymentModal.booking || !paymentModal.type) return 0;
       const basePrice = paymentModal.booking.price;
@@ -142,6 +137,10 @@ export const BookingModule: React.FC<BookingModuleProps> = ({ bookings, courts, 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-20 h-full flex flex-col max-w-3xl mx-auto" onClick={() => setActiveDropdownId(null)}>
       
+      {activeDropdownId && (
+          <div className="fixed inset-0 z-40 cursor-default" onClick={() => setActiveDropdownId(null)} />
+      )}
+
       {/* Control Bar */}
       <div className="bg-slate-900/90 backdrop-blur-md p-3 rounded-xl border border-white/10 shadow-lg flex flex-col sm:flex-row justify-between items-center gap-4 sticky top-0 z-30">
         <div className="flex items-center gap-2 bg-slate-800 p-1 rounded-lg border border-white/5 w-full sm:w-auto">
@@ -218,7 +217,6 @@ export const BookingModule: React.FC<BookingModuleProps> = ({ bookings, courts, 
                               </div>
 
                               <div className="flex flex-col items-end justify-center p-3 sm:p-4 gap-2 border-l border-white/5 bg-white/[0.02] min-w-[140px] rounded-r-2xl relative">
-                                  {/* BOTÓN DESPLEGABLE DE PAGO */}
                                   <div className="relative w-full">
                                       <button 
                                         onClick={(e) => { e.stopPropagation(); setActiveDropdownId(isDropdownActive ? null : booking.id); }}
@@ -231,7 +229,6 @@ export const BookingModule: React.FC<BookingModuleProps> = ({ bookings, courts, 
                                           <ChevronDown size={12} className={`transition-transform duration-200 ${isDropdownActive ? 'rotate-180' : ''}`}/>
                                       </button>
 
-                                      {/* MENÚ DESPLEGABLE */}
                                       {isDropdownActive && (
                                           <div className="absolute right-0 top-full mt-2 w-48 bg-slate-900 border border-white/10 rounded-xl shadow-2xl z-[60] overflow-hidden flex flex-col p-1 animate-in fade-in zoom-in-95 duration-200 origin-top-right">
                                               <button onClick={(e) => handlePaymentSelect(e, booking, PaymentMethod.CASH)} className="flex items-center gap-2 px-3 py-2.5 text-xs text-green-400 hover:bg-white/5 rounded-lg transition-colors text-left font-bold border-b border-white/5">
@@ -277,7 +274,8 @@ export const BookingModule: React.FC<BookingModuleProps> = ({ bookings, courts, 
       {selectedBooking && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
               <div className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-sm shadow-2xl p-6 relative">
-                  <button onClick={() => setSelectedBooking(null)} className="absolute right-4 top-4 text-slate-400 hover:text-white"><X size={20}/></button>
+                  
+                  {/* CORRECCIÓN: Botones de acción alineados (Cerrar y Editar) */}
                   <div className="mb-6 border-b border-white/10 pb-4">
                       <div className="flex justify-between items-start">
                           <div>
@@ -287,10 +285,14 @@ export const BookingModule: React.FC<BookingModuleProps> = ({ bookings, courts, 
                                 <Clock size={14}/> {selectedBooking.time}
                             </div>
                           </div>
-                          <button onClick={() => handleEditClick(selectedBooking)} className="p-2 bg-slate-800 rounded-lg text-blue-400 hover:bg-slate-700 hover:text-white transition-colors"><Edit2 size={18} /></button>
+                          <div className="flex gap-2">
+                             <button onClick={() => handleEditClick(selectedBooking)} className="p-2 bg-slate-800 rounded-lg text-blue-400 hover:bg-slate-700 hover:text-white transition-colors" title="Editar"><Edit2 size={18} /></button>
+                             <button onClick={() => setSelectedBooking(null)} className="p-2 bg-slate-800 rounded-lg text-slate-400 hover:bg-slate-700 hover:text-white transition-colors" title="Cerrar"><X size={18}/></button>
+                          </div>
                       </div>
                       <div className="mt-3 text-sm text-blue-400 font-bold flex items-center gap-1"><MapPin size={14}/> {courts.find(c => c.id === selectedBooking.courtId)?.name}</div>
                   </div>
+
                   <div className="space-y-4 mb-6">
                       <div className="flex items-center gap-3 p-3 bg-slate-800/50 rounded-lg border border-white/5">
                           <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center text-slate-300"><User size={20}/></div>
@@ -328,13 +330,12 @@ export const BookingModule: React.FC<BookingModuleProps> = ({ bookings, courts, 
           </div>
       )}
 
-      {/* --- PAYMENT MODAL (Común para Turnos y POS) --- */}
+      {/* --- PAYMENT MODAL --- */}
       {paymentModal.isOpen && paymentModal.booking && (
           <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-in fade-in">
               <div className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-sm shadow-2xl p-6 relative">
                   <button onClick={() => setPaymentModal({ ...paymentModal, isOpen: false })} className="absolute right-4 top-4 text-slate-400 hover:text-white"><X size={20}/></button>
                   
-                  {/* HEADER DEL MODAL (Icono y Título) */}
                   <div className="text-center mb-6">
                       <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg border border-white/5 
                         ${paymentModal.type === PaymentMethod.CASH ? 'bg-green-500/20 text-green-500 border-green-500/30' : ''}
@@ -351,14 +352,12 @@ export const BookingModule: React.FC<BookingModuleProps> = ({ bookings, courts, 
                           {paymentModal.type === PaymentMethod.TRANSFER && 'Transferencia'}
                       </h3>
                       
-                      {/* Recargo Comisión (Solo QR) */}
                       {paymentModal.type === PaymentMethod.QR && (config.mpFeePercentage || 0) > 0 && (
                           <div className="text-xs text-orange-400 mb-2 font-bold bg-orange-500/10 px-2 py-1 rounded inline-block border border-orange-500/20">
                              Recargo: {config.mpFeePercentage}% aplicado
                           </div>
                       )}
 
-                      {/* Total a Cobrar */}
                       <div className="bg-slate-800/50 p-4 rounded-xl border border-white/5 mt-4">
                         <p className="text-slate-400 text-sm mb-1">Total a cobrar</p>
                         <span className="text-white font-bold text-2xl block">
@@ -367,16 +366,14 @@ export const BookingModule: React.FC<BookingModuleProps> = ({ bookings, courts, 
                       </div>
                   </div>
 
-                  {/* CONTENIDO VARIABLE SEGÚN MÉTODO */}
+                  {/* CONTENIDO VARIABLE */}
 
-                  {/* --- EFECTIVO --- */}
                   {paymentModal.type === PaymentMethod.CASH && (
                        <p className="text-slate-300 text-sm text-center mb-6">
-                           ¿Confirmas que has recibido el dinero total?
+                           ¿Confirmas que has recibido el dinero total en caja?
                        </p>
                   )}
 
-                  {/* --- QR CONTENT --- */}
                   {paymentModal.type === PaymentMethod.QR && (
                       <div className="bg-white p-4 rounded-xl mb-6 mx-auto w-fit shadow-inner min-h-[230px] flex flex-col items-center justify-center">
                           {isLoadingQr ? (
@@ -401,7 +398,6 @@ export const BookingModule: React.FC<BookingModuleProps> = ({ bookings, courts, 
                       </div>
                   )}
 
-                  {/* --- TRANSFER CONTENT --- */}
                   {paymentModal.type === PaymentMethod.TRANSFER && (
                       <div className="space-y-4 mb-6">
                           <div className="bg-slate-800/50 p-4 rounded-xl border border-white/5 text-center">
@@ -427,7 +423,6 @@ export const BookingModule: React.FC<BookingModuleProps> = ({ bookings, courts, 
                       </div>
                   )}
 
-                  {/* BOTÓN FINAL DE CONFIRMACIÓN */}
                   <button 
                       onClick={handleConfirmPayment}
                       className={`w-full font-bold py-3 rounded-xl shadow-lg flex items-center justify-center gap-2 transition-all active:scale-95
@@ -444,7 +439,6 @@ export const BookingModule: React.FC<BookingModuleProps> = ({ bookings, courts, 
   );
 };
 
-// ... (BookingFormModal sigue igual al final del archivo)
 const BookingFormModal = ({ isOpen, onClose, courts, onSave, initialDate, initialTime, editingBooking }: any) => {
     const isEditMode = !!editingBooking;
     const defaultCourt = courts[0];
@@ -468,6 +462,8 @@ const BookingFormModal = ({ isOpen, onClose, courts, onSave, initialDate, initia
         const court = courts.find((c: Court) => c.id === courtId);
         setForm({ ...form, courtId, price: court ? (court.basePrice || 0) : 0 });
     };
+
+    const applyPrice = (price: number) => { setForm(prev => ({ ...prev, price })); };
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
