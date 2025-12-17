@@ -100,7 +100,8 @@ export interface ClubConfig {
   promoPrice: number;
 
   // Payment Config
-  mpAlias: string; // <--- NUEVO CAMPO
+  mpAlias: string;
+  mpFeePercentage: number; // <--- NUEVO CAMPO
 }
 
 export type ActivityType = 'BOOKING' | 'SALE' | 'SHIFT' | 'SYSTEM' | 'STOCK';
