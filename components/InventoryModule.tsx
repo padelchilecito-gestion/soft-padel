@@ -55,6 +55,7 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({ products, conf
   const [categoryFilter, setCategoryFilter] = useState('Todas');
   
   const theme = COLOR_THEMES[config.courtColorTheme];
+  // Genera las categorías dinámicamente para el filtro basándose en los productos existentes
   const categories = ['Todas', ...Array.from(new Set(products.map(p => p.category)))];
 
   // Handlers
@@ -270,10 +271,10 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({ products, conf
                                     <ImageIcon className="text-slate-500 group-hover:text-blue-500"/>
                                 )}
                                 
-                                {/* CORRECCIÓN: z-20 para que esté por encima de todo */}
+                                {/* z-20 para que esté por encima de todo */}
                                 <input type="file" className="absolute inset-0 opacity-0 cursor-pointer z-20" accept="image/*" onChange={handleImageUpload} />
                                 
-                                {/* CORRECCIÓN: pointer-events-none para no bloquear el clic */}
+                                {/* pointer-events-none para no bloquear el clic */}
                                 <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
                                     <Upload className="text-white" size={16}/>
                                 </div>
@@ -299,6 +300,7 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({ products, conf
                                         className="w-full bg-slate-800 border border-white/10 rounded-lg p-2.5 text-sm text-white focus:ring-2 focus:ring-blue-500"
                                     >
                                         <option value="Bebidas">Bebidas</option>
+                                        <option value="Comestibles">Comestibles</option> {/* NUEVA CATEGORÍA */}
                                         <option value="Accesorios">Accesorios</option>
                                         <option value="Paletas">Paletas</option>
                                         <option value="Indumentaria">Indumentaria</option>
