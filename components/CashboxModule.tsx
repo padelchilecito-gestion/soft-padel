@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
-import { ClubConfig, ActivityLogEntry, ActivityType, PaymentMethod } from '../types';
-import { DollarSign, Lock, Unlock, TrendingUp, Calendar, CreditCard, Banknote, QrCode } from 'lucide-react';
+import { ClubConfig, ActivityLogEntry, ActivityType, PaymentMethod, Expense } from '../types';
+import { DollarSign, Lock, Unlock, TrendingUp, Calendar, CreditCard, Banknote, QrCode, ArrowDownCircle, ArrowUpCircle } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import { COLOR_THEMES } from '../constants';
 
@@ -8,29 +8,69 @@ interface CashboxModuleProps {
     config: ClubConfig;
     role: string;
     activities: ActivityLogEntry[];
+    expenses: Expense[]; // <--- NUEVO PROP
     onLogActivity: (type: ActivityType, description: string, amount?: number) => void;
 }
 
 const formatMoney = (val: number) => val.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' });
 
-export const CashboxModule: React.FC<CashboxModuleProps> = ({ config, role, activities, onLogActivity }) => {
+export const CashboxModule: React.FC<CashboxModuleProps> = ({ config, role, activities, expenses, onLogActivity }) => {
     const [status, setStatus] = useState<'OPEN' | 'CLOSED'>('CLOSED');
     const [amount, setAmount] = useState<string>('');
     const theme = COLOR_THEMES[config.courtColorTheme];
 
-    // Filtrar actividades de HOY
     const today = new Date().toISOString().split('T')[0];
-    const todaysActivities = activities.filter(act => act.timestamp.startsWith(today));
 
-    // Calcular totales por método de pago para el gráfico
+    // 1. Filtrar INGRESO (Actividades de hoy)
+    const todaysIncomeEvents = useMemo(() => {
+        return activities.filter(act => 
+            act.timestamp.startsWith(today) && 
+            (act.type === 'SALE' || act.type === 'BOOKING' || act.type === 'SHIFT')
+        );
+    }, [activities, today]);
+
+    // 2. Filtrar EGRESOS (Gastos de hoy) - Solo si es ADMIN
+    const todaysExpenses = useMemo(() => {
+        if (role !== 'ADMIN') return []; // Operadores no ven gastos
+        return expenses.filter(e => e.date === today);
+    }, [expenses, today, role]);
+
+    // 3. Combinar todo en una línea de tiempo única
+    const timeline = useMemo(() => {
+        const events = [
+            ...todaysIncomeEvents.map(e => ({
+                id: e.id,
+                time: e.timestamp,
+                type: 'INCOME',
+                category: e.type,
+                description: e.description,
+                amount: e.amount || 0,
+                method: e.method,
+                user: e.user
+            })),
+            ...todaysExpenses.map(e => ({
+                id: e.id,
+                time: `${e.date}T12:00:00`, // Los gastos suelen tener solo fecha, normalizamos
+                type: 'EXPENSE',
+                category: e.category,
+                description: e.description,
+                amount: e.amount,
+                method: null,
+                user: 'Admin'
+            }))
+        ];
+        // Ordenar por hora (más reciente arriba)
+        return events.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
+    }, [todaysIncomeEvents, todaysExpenses]);
+
+    // Calcular totales para gráficos (Solo Ingresos, visible para todos)
     const incomeByMethod = useMemo(() => {
         const data = [
             { name: 'Efectivo', value: 0, color: '#22c55e', icon: Banknote },
             { name: 'QR MP', value: 0, color: '#3b82f6', icon: QrCode },
             { name: 'Transferencia', value: 0, color: '#a855f7', icon: CreditCard },
         ];
-
-        todaysActivities.forEach(act => {
+        todaysIncomeEvents.forEach(act => {
             if ((act.type === 'SALE' || act.type === 'BOOKING') && act.amount && act.method) {
                 const idx = data.findIndex(d => 
                     (act.method === PaymentMethod.CASH && d.name === 'Efectivo') ||
@@ -41,9 +81,10 @@ export const CashboxModule: React.FC<CashboxModuleProps> = ({ config, role, acti
             }
         });
         return data.filter(d => d.value > 0);
-    }, [todaysActivities]);
+    }, [todaysIncomeEvents]);
 
     const totalIncome = incomeByMethod.reduce((acc, curr) => acc + curr.value, 0);
+    const totalExpensesAmount = todaysExpenses.reduce((acc, curr) => acc + curr.amount, 0);
 
     const handleAction = () => {
         if (!amount) return;
@@ -56,19 +97,17 @@ export const CashboxModule: React.FC<CashboxModuleProps> = ({ config, role, acti
 
     return (
         <div className="max-w-6xl mx-auto space-y-6 animate-in fade-in pb-20">
-            {/* --- PANEL DE CONTROL DE CAJA --- */}
+            {/* --- RESUMEN SUPERIOR --- */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* 1. Control de Apertura/Cierre */}
+                
+                {/* Control Caja */}
                 <div className="bg-slate-900/60 backdrop-blur-md p-6 rounded-2xl border border-white/10 shadow-xl flex flex-col items-center justify-center text-center">
                      <div className={`w-20 h-20 rounded-full flex items-center justify-center mb-4 shadow-lg border-4 transition-colors duration-500
                         ${status === 'OPEN' ? 'bg-green-500/20 text-green-400 border-green-500/30' : 'bg-red-500/20 text-red-400 border-red-500/30'}`}>
                         {status === 'OPEN' ? <Unlock size={40} /> : <Lock size={40} />}
                     </div>
                     <h2 className="text-2xl font-bold text-white mb-1">{status === 'OPEN' ? 'Caja Abierta' : 'Caja Cerrada'}</h2>
-                    <p className="text-slate-400 text-sm mb-6 max-w-xs">
-                        {status === 'OPEN' ? 'Registrando operaciones...' : 'Inicia el turno para operar.'}
-                    </p>
-                    <div className="w-full max-w-xs space-y-3">
+                    <div className="w-full max-w-xs space-y-3 mt-4">
                         <div className="relative">
                             <DollarSign className="absolute left-3 top-3 text-slate-400" size={18}/>
                             <input 
@@ -79,26 +118,26 @@ export const CashboxModule: React.FC<CashboxModuleProps> = ({ config, role, acti
                                 className="w-full bg-slate-800 border border-white/10 rounded-xl py-2.5 pl-10 text-white font-mono"
                             />
                         </div>
-                        <button 
-                            onClick={handleAction}
-                            disabled={!amount}
-                            className={`w-full py-2.5 rounded-xl font-bold text-white transition-all active:scale-95 ${status === 'CLOSED' ? 'bg-green-600 hover:bg-green-500' : 'bg-red-600 hover:bg-red-500'}`}
-                        >
+                        <button onClick={handleAction} disabled={!amount} className={`w-full py-2.5 rounded-xl font-bold text-white transition-all active:scale-95 ${status === 'CLOSED' ? 'bg-green-600 hover:bg-green-500' : 'bg-red-600 hover:bg-red-500'}`}>
                             {status === 'CLOSED' ? 'ABRIR TURN' : 'CERRAR TURN'}
                         </button>
                     </div>
                 </div>
 
-                {/* 2. Gráfico de Ingresos del Día */}
+                {/* Gráfico de Ingresos (Visible para todos) */}
                 <div className="lg:col-span-2 bg-slate-900/60 backdrop-blur-md p-6 rounded-2xl border border-white/10 shadow-xl flex flex-col">
                     <div className="flex justify-between items-start mb-4">
                         <div>
-                            <h3 className="text-lg font-bold text-white flex items-center gap-2"><TrendingUp size={20} className="text-blue-400"/> Ingresos del Día</h3>
-                            <p className="text-xs text-slate-400">Desglose por método de pago</p>
+                            <h3 className="text-lg font-bold text-white flex items-center gap-2"><TrendingUp size={20} className="text-blue-400"/> Ventas del Turno</h3>
                         </div>
                         <div className="text-right">
-                            <span className="text-xs text-slate-400 uppercase font-bold">Total Recaudado</span>
+                            <span className="text-xs text-slate-400 uppercase font-bold">Ingresos</span>
                             <div className="text-2xl font-mono font-bold text-green-400">{formatMoney(totalIncome)}</div>
+                            {role === 'ADMIN' && totalExpensesAmount > 0 && (
+                                <div className="text-xs text-red-400 font-mono mt-1">
+                                    - {formatMoney(totalExpensesAmount)} (Gastos)
+                                </div>
+                            )}
                         </div>
                     </div>
 
@@ -109,9 +148,7 @@ export const CashboxModule: React.FC<CashboxModuleProps> = ({ config, role, acti
                                     <ResponsiveContainer width="100%" height="100%">
                                         <PieChart>
                                             <Pie data={incomeByMethod} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
-                                                {incomeByMethod.map((entry, index) => (
-                                                    <Cell key={`cell-${index}`} fill={entry.color} stroke="none"/>
-                                                ))}
+                                                {incomeByMethod.map((entry, index) => (<Cell key={`cell-${index}`} fill={entry.color} stroke="none"/>))}
                                             </Pie>
                                             <Tooltip contentStyle={{backgroundColor: '#1e293b', border: 'none', borderRadius: '8px'}} itemStyle={{color: '#fff'}} formatter={(val: number) => formatMoney(val)}/>
                                         </PieChart>
@@ -120,10 +157,7 @@ export const CashboxModule: React.FC<CashboxModuleProps> = ({ config, role, acti
                                 <div className="w-full sm:w-1/2 space-y-3 pl-4">
                                     {incomeByMethod.map((item) => (
                                         <div key={item.name} className="flex items-center justify-between p-2 rounded-lg bg-white/5 border border-white/5">
-                                            <div className="flex items-center gap-2">
-                                                <div className="w-3 h-3 rounded-full" style={{backgroundColor: item.color}}></div>
-                                                <span className="text-sm text-slate-300">{item.name}</span>
-                                            </div>
+                                            <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full" style={{backgroundColor: item.color}}></div><span className="text-sm text-slate-300">{item.name}</span></div>
                                             <span className="font-mono font-bold text-white">{formatMoney(item.value)}</span>
                                         </div>
                                     ))}
@@ -136,34 +170,50 @@ export const CashboxModule: React.FC<CashboxModuleProps> = ({ config, role, acti
                 </div>
             </div>
 
-            {/* 3. Listado de Movimientos */}
+            {/* --- LISTADO DE MOVIMIENTOS --- */}
             <div className="bg-slate-900/60 backdrop-blur-md p-6 rounded-2xl border border-white/10 shadow-lg">
                 <h3 className="text-white font-bold text-lg mb-4 flex items-center gap-2">
-                    <Calendar size={20}/> Movimientos del Turno (Hoy)
+                    <Calendar size={20}/> Detalle de Movimientos {role === 'ADMIN' ? '(Completo)' : '(Ventas)'}
                 </h3>
                 <div className="overflow-x-auto">
                     <table className="w-full text-left text-sm text-slate-300">
                         <thead className="bg-white/5 text-xs uppercase font-bold text-slate-400">
                             <tr>
                                 <th className="px-4 py-3 rounded-l-lg">Hora</th>
-                                <th className="px-4 py-3">Tipo</th>
+                                <th className="px-4 py-3">Concepto</th>
                                 <th className="px-4 py-3">Descripción</th>
                                 <th className="px-4 py-3">Método</th>
                                 <th className="px-4 py-3 rounded-r-lg text-right">Monto</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-white/5">
-                            {todaysActivities.map((act) => (
+                            {timeline.map((act) => (
                                 <tr key={act.id} className="hover:bg-white/5 transition-colors">
-                                    <td className="px-4 py-3 font-mono text-slate-400">{new Date(act.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</td>
-                                    <td className="px-4 py-3">
-                                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
-                                            act.type === 'SALE' ? 'bg-green-500/10 text-green-400 border-green-500/20' :
-                                            act.type === 'BOOKING' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
-                                            'bg-yellow-500/10 text-yellow-400 border-yellow-500/20'
-                                        }`}>{act.type}</span>
+                                    <td className="px-4 py-3 font-mono text-slate-500 text-xs">
+                                        {new Date(act.time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                                     </td>
-                                    <td className="px-4 py-3 text-white">{act.description}</td>
+                                    
+                                    <td className="px-4 py-3">
+                                        {act.type === 'EXPENSE' ? (
+                                            <span className="px-2 py-0.5 rounded text-[10px] font-bold border bg-red-500/10 text-red-400 border-red-500/20 flex w-fit items-center gap-1">
+                                                <ArrowDownCircle size={10}/> GASTO
+                                            </span>
+                                        ) : (
+                                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold border flex w-fit items-center gap-1 ${
+                                                act.category === 'SALE' ? 'bg-green-500/10 text-green-400 border-green-500/20' :
+                                                act.category === 'BOOKING' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
+                                                'bg-yellow-500/10 text-yellow-400 border-yellow-500/20'
+                                            }`}>
+                                                <ArrowUpCircle size={10}/> {act.category === 'SHIFT' ? 'CAJA' : act.category}
+                                            </span>
+                                        )}
+                                    </td>
+
+                                    <td className="px-4 py-3 text-white">
+                                        {act.description}
+                                        {act.type === 'EXPENSE' && <span className="text-xs text-slate-500 ml-2">({act.category})</span>}
+                                    </td>
+                                    
                                     <td className="px-4 py-3 text-xs">
                                         {act.method ? (
                                             <span className="flex items-center gap-1">
@@ -172,16 +222,19 @@ export const CashboxModule: React.FC<CashboxModuleProps> = ({ config, role, acti
                                                 {act.method === PaymentMethod.TRANSFER && <CreditCard size={12}/>}
                                                 {act.method}
                                             </span>
-                                        ) : '-'}
+                                        ) : (
+                                            <span className="text-slate-600">-</span>
+                                        )}
                                     </td>
-                                    <td className="px-4 py-3 text-right font-mono font-bold text-white">
-                                        {act.amount ? formatMoney(act.amount) : '-'}
+                                    
+                                    <td className={`px-4 py-3 text-right font-mono font-bold ${act.type === 'EXPENSE' ? 'text-red-400' : 'text-white'}`}>
+                                        {act.type === 'EXPENSE' ? '-' : ''}{act.amount ? formatMoney(act.amount) : '-'}
                                     </td>
                                 </tr>
                             ))}
                         </tbody>
                     </table>
-                    {todaysActivities.length === 0 && <p className="text-center text-slate-500 py-8 italic">No hay movimientos hoy.</p>}
+                    {timeline.length === 0 && <p className="text-center text-slate-500 py-8 italic">No hay movimientos hoy.</p>}
                 </div>
             </div>
         </div>
