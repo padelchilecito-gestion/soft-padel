@@ -98,7 +98,8 @@ export const INITIAL_CONFIG: ClubConfig = {
   promoActive: false,
   promoText: '¡Gaseosa de Regalo!',
   promoPrice: 20000,
-  mpAlias: 'ALIAS.PADEL.MP' // <--- VALOR INICIAL
+  mpAlias: 'ALIAS.PADEL.MP',
+  mpFeePercentage: 0 // <--- VALOR INICIAL
 };
 
 export const generateMockBookings = (): Booking[] => {
