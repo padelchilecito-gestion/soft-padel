@@ -26,10 +26,13 @@ export interface Court {
   type: 'Indoor' | 'Outdoor';
   surfaceColor: 'blue' | 'green' | 'red' | 'yellow';
   status: 'AVAILABLE' | 'MAINTENANCE';
+  // Pricing
   basePrice: number;
+  // Offer 1
   isOffer1Active: boolean;
   offer1Price: number;
   offer1Label?: string;
+  // Offer 2
   isOffer2Active: boolean;
   offer2Price: number;
   offer2Label?: string;
@@ -63,6 +66,16 @@ export interface CartItem extends Product {
   quantity: number;
 }
 
+export interface CashSession {
+  id: string;
+  openedAt: string;
+  closedAt: string | null;
+  openedBy: string;
+  initialAmount: number;
+  finalAmount: number | null;
+  status: 'OPEN' | 'CLOSED';
+}
+
 export interface Advertisement {
   id: string;
   imageUrl: string;
@@ -80,9 +93,13 @@ export interface ClubConfig {
   bookingBackgroundImage?: string;
   ads: Advertisement[];
   adRotationInterval: number;
+  
+  // Promotion Config
   promoActive: boolean;
   promoText: string;
   promoPrice: number;
+
+  // Payment Config
   mpAlias: string;
   mpFeePercentage: number;
 }
@@ -96,14 +113,23 @@ export interface ActivityLogEntry {
   timestamp: string;
   user: string;
   amount?: number;
-  method?: PaymentMethod; // <--- Nuevo campo para el gráfico
+  method?: PaymentMethod;
 }
 
-// --- NUEVA INTERFAZ DE GASTOS ---
 export interface Expense {
   id: string;
   date: string;
   category: 'Sueldos' | 'Servicios' | 'Mantenimiento' | 'Alquiler' | 'Varios';
   description: string;
   amount: number;
+}
+
+// NUEVA INTERFAZ PARA RESÚMENES
+export interface MonthlySummary {
+  id: string; // Formato "YYYY-MM" (ej: "2023-10")
+  monthLabel: string; // "Octubre 2023"
+  totalIncome: number; // Ingresos acumulados de registros borrados
+  totalExpenses: number; // Gastos acumulados de registros borrados
+  operationCount: number; // Cantidad de operaciones compactadas
+  lastUpdated: string;
 }
