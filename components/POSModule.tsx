@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Search, ShoppingCart, Trash2, Plus, Minus, CreditCard, Banknote, QrCode, AlertTriangle, X, Copy, Share2, Check, Loader2 } from 'lucide-react';
+// Añadí los iconos faltantes
+import { Search, ShoppingCart, Trash2, Plus, Minus, CreditCard, Banknote, QrCode, AlertTriangle, X, Copy, Share2, CheckCircle, Loader2 } from 'lucide-react';
 import { Product, CartItem, ClubConfig, PaymentMethod } from '../types';
 import { COLOR_THEMES } from '../constants';
 import { createCartPreference } from '../services/mercadopago';
@@ -69,21 +70,15 @@ export const POSModule: React.FC<POSModuleProps> = ({ products, config, onProces
   );
 
   const handlePaymentClick = async (method: PaymentMethod) => {
-      if (method === PaymentMethod.CASH) {
-          if (confirm(`¿Confirmar venta por $${formatMoney(total)} en Efectivo?`)) {
-              onProcessSale(cart, total, method);
-              setCart([]);
-          }
-      } else {
-          setPaymentModal({ isOpen: true, type: method });
-          setQrUrl(null);
-          
-          if (method === PaymentMethod.QR) {
-              setIsLoadingQr(true);
-              const url = await createCartPreference(cart, feePercentage);
-              setQrUrl(url);
-              setIsLoadingQr(false);
-          }
+      // CORRECCIÓN: Eliminamos el confirm() nativo. Siempre abrimos el modal.
+      setPaymentModal({ isOpen: true, type: method });
+      setQrUrl(null);
+      
+      if (method === PaymentMethod.QR) {
+          setIsLoadingQr(true);
+          const url = await createCartPreference(cart, feePercentage);
+          setQrUrl(url);
+          setIsLoadingQr(false);
       }
   };
 
@@ -177,27 +172,49 @@ export const POSModule: React.FC<POSModuleProps> = ({ products, config, onProces
               <div className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-sm shadow-2xl p-6 relative">
                   <button onClick={() => setPaymentModal({ isOpen: false, type: null })} className="absolute right-4 top-4 text-slate-400 hover:text-white"><X size={20}/></button>
                   
+                  {/* HEADER DEL MODAL (Icono y Título) */}
                   <div className="text-center mb-6">
-                      <div className="w-16 h-16 bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg border border-white/5">
-                          {paymentModal.type === PaymentMethod.QR ? <QrCode size={32} className="text-blue-400"/> : <CreditCard size={32} className="text-purple-400"/>}
+                      <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg border border-white/5 
+                        ${paymentModal.type === PaymentMethod.CASH ? 'bg-green-500/20 text-green-500 border-green-500/30' : ''}
+                        ${paymentModal.type === PaymentMethod.QR ? 'bg-blue-500/20 text-blue-500 border-blue-500/30' : ''}
+                        ${paymentModal.type === PaymentMethod.TRANSFER ? 'bg-purple-500/20 text-purple-500 border-purple-500/30' : ''}
+                      `}>
+                          {paymentModal.type === PaymentMethod.CASH && <Banknote size={32}/>}
+                          {paymentModal.type === PaymentMethod.QR && <QrCode size={32}/>}
+                          {paymentModal.type === PaymentMethod.TRANSFER && <CreditCard size={32}/>}
                       </div>
                       <h3 className="text-xl font-bold text-white mb-1">
-                          {paymentModal.type === PaymentMethod.QR ? 'Cobro con QR' : 'Transferencia'}
+                          {paymentModal.type === PaymentMethod.CASH && 'Confirmar Pago Efectivo'}
+                          {paymentModal.type === PaymentMethod.QR && 'Cobro con QR'}
+                          {paymentModal.type === PaymentMethod.TRANSFER && 'Transferencia'}
                       </h3>
                       
-                      {/* Recargo Comisión */}
+                      {/* Recargo Comisión (Solo QR) */}
                       {paymentModal.type === PaymentMethod.QR && (config.mpFeePercentage || 0) > 0 && (
                           <div className="text-xs text-orange-400 mb-2 font-bold bg-orange-500/10 px-2 py-1 rounded inline-block border border-orange-500/20">
                              Recargo: {config.mpFeePercentage}% aplicado
                           </div>
                       )}
 
-                      <p className="text-slate-400 text-sm">
-                          Total a cobrar: <span className="text-white font-bold text-lg">${formatMoney(finalTotal)}</span>
-                      </p>
+                      {/* Total a Cobrar */}
+                      <div className="bg-slate-800/50 p-4 rounded-xl border border-white/5 mt-4">
+                        <p className="text-slate-400 text-sm mb-1">Total a cobrar</p>
+                        <span className="text-white font-bold text-2xl block">
+                              ${formatMoney(finalTotal)}
+                        </span>
+                      </div>
                   </div>
 
-                  {/* QR CONTENT */}
+                  {/* CONTENIDO VARIABLE SEGÚN MÉTODO */}
+
+                  {/* --- EFECTIVO --- */}
+                  {paymentModal.type === PaymentMethod.CASH && (
+                       <p className="text-slate-300 text-sm text-center mb-6">
+                           ¿Confirmas que has recibido el dinero total?
+                       </p>
+                  )}
+
+                  {/* --- QR CONTENT --- */}
                   {paymentModal.type === PaymentMethod.QR && (
                       <div className="bg-white p-4 rounded-xl mb-6 mx-auto w-fit shadow-inner min-h-[230px] flex flex-col items-center justify-center">
                           {isLoadingQr ? (
@@ -212,15 +229,17 @@ export const POSModule: React.FC<POSModuleProps> = ({ products, config, onProces
                                       alt="QR de Pago" 
                                       className="w-48 h-48 object-contain"
                                   />
-                                  <p className="text-black/50 text-[10px] text-center mt-2 font-mono">Escanea para pagar</p>
+                                  <p className="text-black/50 text-[10px] text-center mt-2 font-mono">Escanea con Mercado Pago</p>
                               </>
                           ) : (
-                              <p className="text-red-500 text-xs font-bold text-center">Error al generar QR. <br/> Revisa el token.</p>
+                              <p className="text-red-500 text-xs font-bold text-center p-4">
+                                  Error al conectar con MP.<br/>Verifica tu Token.
+                              </p>
                           )}
                       </div>
                   )}
 
-                  {/* TRANSFER CONTENT */}
+                  {/* --- TRANSFER CONTENT --- */}
                   {paymentModal.type === PaymentMethod.TRANSFER && (
                       <div className="space-y-4 mb-6">
                           <div className="bg-slate-800/50 p-4 rounded-xl border border-white/5 text-center">
@@ -231,25 +250,30 @@ export const POSModule: React.FC<POSModuleProps> = ({ products, config, onProces
                                   </span>
                                   <button onClick={() => navigator.clipboard.writeText(config.mpAlias || '')} className="text-slate-400 hover:text-white p-1" title="Copiar"><Copy size={14}/></button>
                               </div>
+                              <p className="text-[10px] text-slate-500 mt-2">Pide el comprobante al cliente.</p>
                           </div>
                           
                           <button 
                               onClick={() => {
-                                  const text = `Hola! Aquí tienes el alias para transferir el total de $${finalTotal}: *${config.mpAlias}*`;
+                                  const text = `Hola! Para confirmar tu compra de $${formatMoney(finalTotal)}, por favor transferí al alias: *${config.mpAlias}* y envianos el comprobante.`;
                                   window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
                               }}
                               className="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2"
                           >
-                              <Share2 size={18}/> Compartir por WhatsApp
+                              <Share2 size={18}/> Enviar Datos por WhatsApp
                           </button>
                       </div>
                   )}
 
+                  {/* BOTÓN FINAL DE CONFIRMACIÓN */}
                   <button 
                       onClick={confirmModalPayment}
-                      className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2"
+                      className={`w-full font-bold py-3 rounded-xl shadow-lg flex items-center justify-center gap-2 transition-all active:scale-95
+                        ${paymentModal.type === PaymentMethod.CASH ? 'bg-green-600 hover:bg-green-500 text-white shadow-green-500/20' : 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-500/20'}
+                      `}
                   >
-                      <Check size={20}/> Confirmar Cobro
+                      <CheckCircle size={20}/> 
+                      {paymentModal.type === PaymentMethod.CASH ? 'Sí, Dinero Recibido' : 'Confirmar Cobro Realizado'}
                   </button>
               </div>
           </div>
