@@ -1,6 +1,6 @@
 import { db } from '../firebaseConfig';
-import { collection, doc, setDoc, addDoc, updateDoc, deleteDoc, onSnapshot, query, orderBy, getDocs } from 'firebase/firestore';
-import { Booking, Product, Court, User, ActivityLogEntry, ClubConfig, BookingStatus, Expense } from '../types';
+import { collection, doc, setDoc, addDoc, updateDoc, deleteDoc, onSnapshot, query, orderBy, getDocs, writeBatch, where, limit, getDoc } from 'firebase/firestore';
+import { Booking, Product, Court, User, ActivityLogEntry, ClubConfig, BookingStatus, Expense, MonthlySummary } from '../types';
 import { MOCK_USERS, MOCK_COURTS, INITIAL_CONFIG } from '../constants';
 
 const BOOKINGS_COL = 'bookings';
@@ -8,11 +8,12 @@ const PRODUCTS_COL = 'products';
 const COURTS_COL = 'courts';
 const USERS_COL = 'users';
 const ACTIVITY_COL = 'activity_logs';
-const EXPENSES_COL = 'expenses'; // <--- NUEVA COLECCIÓN
+const EXPENSES_COL = 'expenses';
 const CONFIG_COL = 'club_config';
+const SUMMARIES_COL = 'monthly_summaries';
 const CONFIG_DOC_ID = 'main_config';
 
-// --- HELPERS DE SANITIZACIÓN ---
+// --- HELPERS ---
 const sanitize = (data: any): any => {
     if (!data || typeof data !== 'object') return data;
     if (data instanceof Date) return data.toISOString();
@@ -114,10 +115,96 @@ export const updateConfig = async (config: ClubConfig) => setDoc(doc(db, CONFIG_
 export const subscribeActivity = (cb: (d: ActivityLogEntry[]) => void) => onSnapshot(query(collection(db, ACTIVITY_COL), orderBy('timestamp', 'desc')), (s) => cb(s.docs.map(d => ({ id: d.id, ...d.data() } as ActivityLogEntry))));
 export const logActivity = async (entry: ActivityLogEntry) => { const { id, ...r } = sanitize(entry); await addDoc(collection(db, ACTIVITY_COL), r); };
 
-// --- GASTOS (NUEVO) ---
+// --- GASTOS ---
 export const subscribeExpenses = (cb: (d: Expense[]) => void) => onSnapshot(query(collection(db, EXPENSES_COL), orderBy('date', 'desc')), (s) => cb(s.docs.map(d => ({ id: d.id, ...d.data() } as Expense))));
 export const addExpense = async (e: Expense) => { const { id, ...r } = sanitize(e); await addDoc(collection(db, EXPENSES_COL), r); };
 export const deleteExpense = async (id: string) => deleteDoc(doc(db, EXPENSES_COL, id));
+
+// --- MANTENIMIENTO Y RESÚMENES ---
+export const subscribeSummaries = (callback: (data: MonthlySummary[]) => void) => {
+    const q = query(collection(db, SUMMARIES_COL), orderBy('id', 'desc'));
+    return onSnapshot(q, (snapshot) => {
+        const summaries = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as MonthlySummary));
+        callback(summaries);
+    });
+};
+
+export const runMaintenance = async () => {
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - 15); 
+    const cutoffStr = cutoffDate.toISOString();
+
+    console.log("🔄 Iniciando mantenimiento...");
+
+    try {
+        // Buscar Actividades Viejas (Límite 500 para no saturar)
+        const oldLogsQuery = query(
+            collection(db, ACTIVITY_COL),
+            where('timestamp', '<', cutoffStr),
+            limit(500)
+        );
+        
+        const snapshot = await getDocs(oldLogsQuery);
+        if (snapshot.empty) {
+            console.log("✅ No hay registros viejos para limpiar.");
+            return;
+        }
+
+        const batch = writeBatch(db);
+        const summariesCache: { [key: string]: MonthlySummary } = {};
+
+        // Procesar cada registro viejo
+        for (const docSnap of snapshot.docs) {
+            const data = docSnap.data() as ActivityLogEntry;
+            const date = new Date(data.timestamp);
+            const monthKey = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}`; // Ej: "2023-10"
+            
+            // Inicializar resumen en memoria si no existe
+            if (!summariesCache[monthKey]) {
+                const summaryRef = doc(db, SUMMARIES_COL, monthKey);
+                const summarySnap = await getDoc(summaryRef);
+                
+                if (summarySnap.exists()) {
+                    summariesCache[monthKey] = summarySnap.data() as MonthlySummary;
+                } else {
+                    const monthName = date.toLocaleString('es-AR', { month: 'long', year: 'numeric' });
+                    summariesCache[monthKey] = {
+                        id: monthKey,
+                        monthLabel: monthName.charAt(0).toUpperCase() + monthName.slice(1),
+                        totalIncome: 0,
+                        totalExpenses: 0,
+                        operationCount: 0,
+                        lastUpdated: new Date().toISOString()
+                    };
+                }
+            }
+
+            // Sumar al acumulado si es un ingreso
+            if (data.amount) {
+                if (data.type === 'SALE' || data.type === 'BOOKING') {
+                    summariesCache[monthKey].totalIncome += data.amount;
+                }
+            }
+            summariesCache[monthKey].operationCount += 1;
+
+            // Borrar el registro original
+            batch.delete(docSnap.ref);
+        }
+
+        // Guardar los resúmenes actualizados
+        Object.values(summariesCache).forEach(summary => {
+            const ref = doc(db, SUMMARIES_COL, summary.id);
+            summary.lastUpdated = new Date().toISOString();
+            batch.set(ref, summary);
+        });
+
+        await batch.commit();
+        console.log(`🧹 Mantenimiento completado: ${snapshot.size} registros compactados.`);
+
+    } catch (error) {
+        console.error("❌ Error en mantenimiento:", error);
+    }
+};
 
 // --- SEED ---
 export const seedDatabase = async () => {
