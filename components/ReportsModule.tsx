@@ -1,7 +1,8 @@
-import React, { useState, useMemo } from 'react';
-import { Booking, ActivityLogEntry, Expense } from '../types';
-import { DollarSign, TrendingDown, TrendingUp, Wallet, Plus, Trash2, Calendar, FileText } from 'lucide-react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { Booking, ActivityLogEntry, Expense, MonthlySummary } from '../types';
+import { DollarSign, TrendingDown, TrendingUp, Wallet, Plus, Trash2, Calendar, FileText, Archive, RefreshCw } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts';
+import { subscribeSummaries, runMaintenance } from '../services/firestore';
 
 interface ReportsModuleProps {
     bookings: Booking[];
@@ -21,13 +22,30 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({ bookings, activiti
         description: '',
         amount: 0
     });
+    
+    // Estado para los resúmenes históricos (bóveda mensual)
+    const [summaries, setSummaries] = useState<MonthlySummary[]>([]);
+    const [isMaintenanceRunning, setIsMaintenanceRunning] = useState(false);
 
-    // 1. CALCULAR INGRESOS TOTALES
-    // Usamos 'activities' para calcular el flujo de caja real (ventas + cobros de reservas)
-    const totalIncome = useMemo(() => {
+    // Suscribirse a los resúmenes históricos al cargar
+    useEffect(() => {
+        const unsub = subscribeSummaries(setSummaries);
+        return () => unsub();
+    }, []);
+
+    // Ejecutar limpieza manual
+    const handleRunMaintenance = async () => {
+        if (confirm("Esta acción compactará los registros de actividad de más de 15 días en un resumen mensual para ahorrar espacio en la base de datos. Los detalles individuales antiguos se borrarán, pero el total se mantendrá. ¿Deseas continuar?")) {
+            setIsMaintenanceRunning(true);
+            await runMaintenance();
+            setIsMaintenanceRunning(false);
+            alert("Mantenimiento finalizado exitosamente.");
+        }
+    };
+
+    // 1. CALCULAR INGRESOS ACTUALES (Mes en curso / Datos vivos en ActivityLog)
+    const currentIncome = useMemo(() => {
         return activities.reduce((acc, curr) => {
-            // Sumamos solo si es un ingreso (Venta, Cobro de Reserva o Apertura de Caja si se considera)
-            // Generalmente SHIFT es movimiento interno, pero SALE y BOOKING son ingresos genuinos.
             if ((curr.type === 'SALE' || curr.type === 'BOOKING') && curr.amount) {
                 return acc + curr.amount;
             }
@@ -35,15 +53,23 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({ bookings, activiti
         }, 0);
     }, [activities]);
 
-    const totalExpenses = useMemo(() => {
+    const currentExpenses = useMemo(() => {
         return expenses.reduce((acc, curr) => acc + curr.amount, 0);
     }, [expenses]);
 
-    const netIncome = totalIncome - totalExpenses;
+    // 2. CALCULAR HISTÓRICO Y TOTALES
+    const historicalIncome = summaries.reduce((acc, s) => acc + s.totalIncome, 0);
+    // Nota: Si implementaras compactación de gastos en el futuro, sumarías s.totalExpenses aquí.
+    const historicalExpenses = 0; 
+    
+    const totalGlobalIncome = currentIncome + historicalIncome;
+    const totalGlobalExpenses = currentExpenses + historicalExpenses;
+    const netIncome = totalGlobalIncome - totalGlobalExpenses;
 
-    // Datos para el gráfico (Comparativa Ingresos vs Gastos)
     const chartData = [
-        { name: 'Balance', Ingresos: totalIncome, Gastos: totalExpenses }
+        { name: 'Actual (15d)', Ingresos: currentIncome, Gastos: currentExpenses },
+        { name: 'Histórico', Ingresos: historicalIncome, Gastos: historicalExpenses },
+        { name: 'Total', Ingresos: totalGlobalIncome, Gastos: totalGlobalExpenses }
     ];
 
     const handleAdd = (e: React.FormEvent) => {
@@ -64,34 +90,35 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({ bookings, activiti
     return (
         <div className="max-w-7xl mx-auto space-y-8 animate-in fade-in pb-24 px-2 sm:px-4">
             
-            {/* --- HEADER KPI (Tarjetas de Resumen) --- */}
+            {/* --- HEADER KPI --- */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {/* Ingresos */}
+                {/* Ingresos Globales */}
                 <div className="bg-slate-900/60 backdrop-blur-md p-6 rounded-2xl border border-white/10 shadow-xl flex items-center justify-between min-w-0">
                     <div className="min-w-0">
-                        <p className="text-slate-400 text-xs font-bold uppercase tracking-wider truncate">Ingresos</p>
-                        <h3 className="text-2xl sm:text-3xl font-black text-green-400 mt-1 truncate">{formatMoney(totalIncome)}</h3>
+                        <p className="text-slate-400 text-xs font-bold uppercase tracking-wider truncate">Ingresos (Global)</p>
+                        <h3 className="text-2xl sm:text-3xl font-black text-green-400 mt-1 truncate">{formatMoney(totalGlobalIncome)}</h3>
+                        <p className="text-[10px] text-slate-500">Histórico + Actual</p>
                     </div>
                     <div className="bg-green-500/10 p-3 rounded-xl text-green-400 shadow-inner flex-shrink-0">
                         <TrendingUp size={28}/>
                     </div>
                 </div>
 
-                {/* Gastos */}
+                {/* Gastos Globales */}
                 <div className="bg-slate-900/60 backdrop-blur-md p-6 rounded-2xl border border-white/10 shadow-xl flex items-center justify-between min-w-0">
                     <div className="min-w-0">
-                        <p className="text-slate-400 text-xs font-bold uppercase tracking-wider truncate">Gastos</p>
-                        <h3 className="text-2xl sm:text-3xl font-black text-red-400 mt-1 truncate">{formatMoney(totalExpenses)}</h3>
+                        <p className="text-slate-400 text-xs font-bold uppercase tracking-wider truncate">Gastos (Global)</p>
+                        <h3 className="text-2xl sm:text-3xl font-black text-red-400 mt-1 truncate">{formatMoney(totalGlobalExpenses)}</h3>
                     </div>
                     <div className="bg-red-500/10 p-3 rounded-xl text-red-400 shadow-inner flex-shrink-0">
                         <TrendingDown size={28}/>
                     </div>
                 </div>
 
-                {/* Neto */}
+                {/* Resultado Neto */}
                 <div className="bg-slate-900/60 backdrop-blur-md p-6 rounded-2xl border border-white/10 shadow-xl flex items-center justify-between min-w-0">
                     <div className="min-w-0">
-                        <p className="text-slate-400 text-xs font-bold uppercase tracking-wider truncate">Resultado</p>
+                        <p className="text-slate-400 text-xs font-bold uppercase tracking-wider truncate">Resultado Neto</p>
                         <h3 className={`text-2xl sm:text-3xl font-black mt-1 truncate ${netIncome >= 0 ? 'text-blue-400' : 'text-orange-400'}`}>
                             {formatMoney(netIncome)}
                         </h3>
@@ -100,6 +127,25 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({ bookings, activiti
                         <Wallet size={28}/>
                     </div>
                 </div>
+            </div>
+
+            {/* --- SECCIÓN MANTENIMIENTO --- */}
+            <div className="bg-blue-900/20 border border-blue-500/30 p-4 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                    <div className="bg-blue-500/20 p-2 rounded-lg text-blue-400"><Archive size={24}/></div>
+                    <div>
+                        <h4 className="text-white font-bold text-sm">Optimización de Base de Datos</h4>
+                        <p className="text-slate-400 text-xs">Compacta registros antiguos (+15 días) en resúmenes mensuales para ahorrar espacio y mejorar velocidad.</p>
+                    </div>
+                </div>
+                <button 
+                    onClick={handleRunMaintenance}
+                    disabled={isMaintenanceRunning}
+                    className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2 transition-colors disabled:opacity-50"
+                >
+                    <RefreshCw size={16} className={isMaintenanceRunning ? "animate-spin" : ""}/>
+                    {isMaintenanceRunning ? "Procesando..." : "Ejecutar Limpieza"}
+                </button>
             </div>
 
             {/* --- CONTENIDO PRINCIPAL --- */}
@@ -179,35 +225,68 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({ bookings, activiti
                 <div className="lg:col-span-2 space-y-8 min-w-0">
                     
                     {/* Gráfico de Balance */}
-                    <div className="bg-slate-900/60 backdrop-blur-md p-6 rounded-2xl border border-white/10 shadow-xl">
-                        <h3 className="text-white font-bold text-lg mb-6">Balance Financiero</h3>
-                        <div className="h-80 w-full">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={chartData} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" horizontal={false} />
-                                    <XAxis type="number" stroke="#94a3b8" tickFormatter={(val) => `$${val/1000}k`} />
-                                    <YAxis type="category" dataKey="name" stroke="#94a3b8" width={80} hide />
-                                    <Tooltip 
-                                        contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #334155', borderRadius: '12px', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)' }} 
-                                        itemStyle={{ color: '#fff', fontWeight: 'bold' }} 
-                                        formatter={(val: number) => formatMoney(val)}
-                                        cursor={{fill: '#ffffff05'}}
-                                    />
-                                    <Legend wrapperStyle={{ paddingTop: '20px' }} />
-                                    <Bar dataKey="Ingresos" fill="#4ade80" radius={[0, 6, 6, 0]} barSize={40} name="Ingresos Totales" />
-                                    <Bar dataKey="Gastos" fill="#f87171" radius={[0, 6, 6, 0]} barSize={40} name="Gastos Totales" />
-                                </BarChart>
-                            </ResponsiveContainer>
+                    <div className="bg-slate-900/60 backdrop-blur-md p-6 rounded-2xl border border-white/10 shadow-xl h-80">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={chartData} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" horizontal={false} />
+                                <XAxis type="number" stroke="#94a3b8" tickFormatter={(val) => `$${val/1000}k`} />
+                                <YAxis type="category" dataKey="name" stroke="#94a3b8" width={80} tick={{fill: 'white', fontSize: 12}} />
+                                <Tooltip 
+                                    contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #334155', borderRadius: '12px', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)' }} 
+                                    itemStyle={{ color: '#fff', fontWeight: 'bold' }} 
+                                    formatter={(val: number) => formatMoney(val)}
+                                    cursor={{fill: '#ffffff05'}}
+                                />
+                                <Legend wrapperStyle={{ paddingTop: '20px' }} />
+                                <Bar dataKey="Ingresos" fill="#4ade80" radius={[0, 6, 6, 0]} barSize={20} name="Ingresos" />
+                                <Bar dataKey="Gastos" fill="#f87171" radius={[0, 6, 6, 0]} barSize={20} name="Gastos" />
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
+
+                    {/* Tabla de Resúmenes Históricos (Archivo Mensual) */}
+                    <div className="bg-slate-900/60 backdrop-blur-md rounded-2xl border border-white/10 shadow-xl overflow-hidden">
+                        <div className="p-6 border-b border-white/5 bg-slate-800/30">
+                            <h3 className="text-white font-bold text-lg flex items-center gap-2">
+                                <Archive size={20} className="text-blue-400"/> Archivo Mensual (Datos Compactados)
+                            </h3>
+                        </div>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left text-sm text-slate-300">
+                                <thead className="bg-slate-950/50 text-xs uppercase font-bold text-slate-400 tracking-wider">
+                                    <tr>
+                                        <th className="px-6 py-4">Mes</th>
+                                        <th className="px-6 py-4 text-center">Operaciones</th>
+                                        <th className="px-6 py-4 text-right">Ingresos Archivados</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-white/5">
+                                    {summaries.length === 0 ? (
+                                        <tr>
+                                            <td colSpan={3} className="px-6 py-8 text-center text-slate-500 italic">
+                                                No hay meses archivados aún. Ejecuta la limpieza.
+                                            </td>
+                                        </tr>
+                                    ) : (
+                                        summaries.map(s => (
+                                            <tr key={s.id} className="hover:bg-white/5 transition-colors">
+                                                <td className="px-6 py-4 font-bold text-white">{s.monthLabel}</td>
+                                                <td className="px-6 py-4 text-center font-mono bg-white/5 rounded mx-2">{s.operationCount}</td>
+                                                <td className="px-6 py-4 text-right font-mono text-green-400">{formatMoney(s.totalIncome)}</td>
+                                            </tr>
+                                        ))
+                                    )}
+                                </tbody>
+                            </table>
                         </div>
                     </div>
 
-                    {/* Tabla de Gastos */}
+                    {/* Tabla de Gastos Recientes */}
                     <div className="bg-slate-900/60 backdrop-blur-md rounded-2xl border border-white/10 shadow-xl overflow-hidden">
-                        <div className="p-6 border-b border-white/5 flex justify-between items-center">
-                            <h3 className="text-white font-bold text-lg">Historial de Gastos</h3>
-                            <span className="text-xs text-slate-500 bg-slate-800 px-3 py-1 rounded-full border border-white/5">
-                                {expenses.length} registros
-                            </span>
+                        <div className="p-6 border-b border-white/5 bg-slate-800/30">
+                            <h3 className="text-white font-bold text-lg flex items-center gap-2">
+                                <FileText size={20} className="text-slate-400"/> Gastos Recientes (Detalle)
+                            </h3>
                         </div>
                         
                         <div className="overflow-x-auto">
@@ -224,9 +303,8 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({ bookings, activiti
                                 <tbody className="divide-y divide-white/5">
                                     {expenses.length === 0 ? (
                                         <tr>
-                                            <td colSpan={5} className="px-6 py-12 text-center text-slate-500 italic flex flex-col items-center gap-2">
-                                                <div className="bg-white/5 p-3 rounded-full mb-2"><FileText size={24} className="opacity-50"/></div>
-                                                No hay gastos registrados aún.
+                                            <td colSpan={5} className="px-6 py-12 text-center text-slate-500 italic">
+                                                No hay gastos recientes.
                                             </td>
                                         </tr>
                                     ) : (
