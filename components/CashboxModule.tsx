@@ -1,37 +1,38 @@
 import React, { useState, useMemo } from 'react';
 import { ClubConfig, ActivityLogEntry, ActivityType, PaymentMethod, Expense } from '../types';
 import { DollarSign, Lock, Unlock, TrendingUp, Calendar, CreditCard, Banknote, QrCode, ArrowDownCircle, ArrowUpCircle } from 'lucide-react';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { COLOR_THEMES } from '../constants';
 
 interface CashboxModuleProps {
     config: ClubConfig;
     role: string;
     activities: ActivityLogEntry[];
-    expenses: Expense[]; // <--- NUEVO PROP
+    expenses: Expense[];
     onLogActivity: (type: ActivityType, description: string, amount?: number) => void;
 }
 
 const formatMoney = (val: number) => val.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' });
 
-export const CashboxModule: React.FC<CashboxModuleProps> = ({ config, role, activities, expenses, onLogActivity }) => {
+export const CashboxModule: React.FC<CashboxModuleProps> = ({ config, role, activities = [], expenses = [], onLogActivity }) => {
     const [status, setStatus] = useState<'OPEN' | 'CLOSED'>('CLOSED');
     const [amount, setAmount] = useState<string>('');
     const theme = COLOR_THEMES[config.courtColorTheme];
 
     const today = new Date().toISOString().split('T')[0];
 
-    // 1. Filtrar INGRESO (Actividades de hoy)
+    // 1. Filtrar INGRESO (Actividades de hoy) - Protección contra undefined
     const todaysIncomeEvents = useMemo(() => {
+        if (!activities) return [];
         return activities.filter(act => 
             act.timestamp.startsWith(today) && 
             (act.type === 'SALE' || act.type === 'BOOKING' || act.type === 'SHIFT')
         );
     }, [activities, today]);
 
-    // 2. Filtrar EGRESOS (Gastos de hoy) - Solo si es ADMIN
+    // 2. Filtrar EGRESOS (Gastos de hoy)
     const todaysExpenses = useMemo(() => {
-        if (role !== 'ADMIN') return []; // Operadores no ven gastos
+        if (role !== 'ADMIN' || !expenses) return [];
         return expenses.filter(e => e.date === today);
     }, [expenses, today, role]);
 
@@ -50,7 +51,7 @@ export const CashboxModule: React.FC<CashboxModuleProps> = ({ config, role, acti
             })),
             ...todaysExpenses.map(e => ({
                 id: e.id,
-                time: `${e.date}T12:00:00`, // Los gastos suelen tener solo fecha, normalizamos
+                time: `${e.date}T12:00:00`,
                 type: 'EXPENSE',
                 category: e.category,
                 description: e.description,
@@ -59,11 +60,10 @@ export const CashboxModule: React.FC<CashboxModuleProps> = ({ config, role, acti
                 user: 'Admin'
             }))
         ];
-        // Ordenar por hora (más reciente arriba)
         return events.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
     }, [todaysIncomeEvents, todaysExpenses]);
 
-    // Calcular totales para gráficos (Solo Ingresos, visible para todos)
+    // Calcular totales para gráficos
     const incomeByMethod = useMemo(() => {
         const data = [
             { name: 'Efectivo', value: 0, color: '#22c55e', icon: Banknote },
@@ -97,7 +97,7 @@ export const CashboxModule: React.FC<CashboxModuleProps> = ({ config, role, acti
 
     return (
         <div className="max-w-6xl mx-auto space-y-6 animate-in fade-in pb-20">
-            {/* --- RESUMEN SUPERIOR --- */}
+            {/* --- PANEL DE CONTROL DE CAJA --- */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 
                 {/* Control Caja */}
@@ -124,7 +124,7 @@ export const CashboxModule: React.FC<CashboxModuleProps> = ({ config, role, acti
                     </div>
                 </div>
 
-                {/* Gráfico de Ingresos (Visible para todos) */}
+                {/* Gráfico de Ingresos */}
                 <div className="lg:col-span-2 bg-slate-900/60 backdrop-blur-md p-6 rounded-2xl border border-white/10 shadow-xl flex flex-col">
                     <div className="flex justify-between items-start mb-4">
                         <div>
@@ -141,7 +141,7 @@ export const CashboxModule: React.FC<CashboxModuleProps> = ({ config, role, acti
                         </div>
                     </div>
 
-                    <div className="flex-1 min-h-[200px] flex items-center">
+                    <div className="flex-1 min-h-[200px] flex items-center" style={{ minHeight: '300px' }}>
                         {incomeByMethod.length > 0 ? (
                             <div className="w-full h-full flex flex-col sm:flex-row items-center">
                                 <div className="h-[200px] w-full sm:w-1/2">
@@ -180,7 +180,7 @@ export const CashboxModule: React.FC<CashboxModuleProps> = ({ config, role, acti
                         <thead className="bg-white/5 text-xs uppercase font-bold text-slate-400">
                             <tr>
                                 <th className="px-4 py-3 rounded-l-lg">Hora</th>
-                                <th className="px-4 py-3">Concepto</th>
+                                <th className="px-4 py-3">Tipo</th>
                                 <th className="px-4 py-3">Descripción</th>
                                 <th className="px-4 py-3">Método</th>
                                 <th className="px-4 py-3 rounded-r-lg text-right">Monto</th>
