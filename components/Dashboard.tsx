@@ -13,15 +13,11 @@ interface DashboardProps {
 const getTodayStr = () => {
     return new Date().toLocaleDateString('es-AR', {
         timeZone: 'America/Argentina/Buenos_Aires',
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit'
+        year: 'numeric', month: '2-digit', day: '2-digit'
     }).split('/').reverse().join('-');
 };
 
-const formatMoney = (amount?: number | null) => {
-    return (amount || 0).toLocaleString();
-};
+const formatMoney = (amount?: number | null) => (amount || 0).toLocaleString();
 
 export const Dashboard: React.FC<DashboardProps> = ({ bookings, products, config }) => {
   const theme = COLOR_THEMES[config.courtColorTheme];
@@ -61,14 +57,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ bookings, products, config
 
   const upcomingBookings = useMemo(() => {
       return bookings
-        .filter(b => {
-            if (b.status === BookingStatus.CANCELLED) return false;
-            return b.date >= todayStr;
-        })
-        .sort((a, b) => {
-            if (a.date !== b.date) return a.date.localeCompare(b.date);
-            return a.time.localeCompare(b.time);
-        })
+        .filter(b => b.status !== BookingStatus.CANCELLED && b.date >= todayStr)
+        .sort((a, b) => a.date === b.date ? a.time.localeCompare(b.time) : a.date.localeCompare(b.date))
         .slice(0, 5);
   }, [bookings, todayStr]);
 
@@ -86,7 +76,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ bookings, products, config
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-slate-900/60 backdrop-blur-md p-6 rounded-2xl border border-white/10 shadow-xl flex flex-col h-[400px]">
+        <div className="glass-panel p-6 rounded-2xl flex flex-col h-[400px] min-w-0">
           <h3 className="text-lg font-semibold mb-4 text-white">Ingresos (Últimos 7 días)</h3>
           <div className="flex-1 min-h-0 w-full" style={{ minHeight: '300px' }}>
             <ResponsiveContainer width="100%" height="100%">
@@ -102,7 +92,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ bookings, products, config
           </div>
         </div>
 
-        <div className="bg-slate-900/60 backdrop-blur-md p-6 rounded-2xl border border-white/10 shadow-xl flex flex-col h-[400px]">
+        <div className="glass-panel p-6 rounded-2xl flex flex-col h-[400px] min-w-0">
           <h3 className="text-lg font-semibold mb-4 text-white">Ocupación (Turnos por día)</h3>
           <div className="flex-1 min-h-0 w-full" style={{ minHeight: '300px' }}>
             <ResponsiveContainer width="100%" height="100%">
@@ -118,7 +108,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ bookings, products, config
         </div>
       </div>
 
-      <div className="bg-slate-900/60 backdrop-blur-md p-6 rounded-2xl border border-white/10 shadow-xl">
+      <div className="glass-panel p-6 rounded-2xl overflow-hidden">
         <h3 className="text-lg font-semibold mb-4 text-white">Próximos Turnos (Agenda)</h3>
         <div className="overflow-x-auto">
           {upcomingBookings.length === 0 ? <p className="text-slate-500 text-sm italic">No hay turnos futuros registrados.</p> : (
@@ -144,7 +134,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ bookings, products, config
 };
 
 const StatCard = ({ title, value, icon, change, isAlert, theme }: any) => (
-  <div className={`p-6 rounded-2xl border ${isAlert ? 'border-red-500/50 bg-red-500/10' : 'border-white/10 bg-slate-900/60'} backdrop-blur-md shadow-lg transition-all hover:scale-[1.02]`}>
+  <div className={`p-6 rounded-2xl border backdrop-blur-md shadow-lg transition-all hover:scale-[1.02] ${isAlert ? 'border-red-500/50 bg-red-500/10' : 'glass-panel'}`}>
     <div className="flex justify-between items-start mb-4">
       <div><p className="text-sm font-medium text-slate-400">{title}</p><h3 className="text-2xl font-bold text-white mt-1">{value}</h3></div>
       <div className={`p-2 rounded-lg bg-white/5 ${isAlert ? 'text-red-400' : theme.accent}`}>{icon}</div>
