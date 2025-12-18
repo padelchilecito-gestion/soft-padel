@@ -21,7 +21,6 @@ export const CashboxModule: React.FC<CashboxModuleProps> = ({ config, role, acti
 
     const today = new Date().toISOString().split('T')[0];
 
-    // 1. Filtrar INGRESO (Actividades de hoy) - Protección contra undefined
     const todaysIncomeEvents = useMemo(() => {
         if (!activities) return [];
         return activities.filter(act => 
@@ -30,40 +29,23 @@ export const CashboxModule: React.FC<CashboxModuleProps> = ({ config, role, acti
         );
     }, [activities, today]);
 
-    // 2. Filtrar EGRESOS (Gastos de hoy)
     const todaysExpenses = useMemo(() => {
         if (role !== 'ADMIN' || !expenses) return [];
         return expenses.filter(e => e.date === today);
     }, [expenses, today, role]);
 
-    // 3. Combinar todo en una línea de tiempo única
     const timeline = useMemo(() => {
         const events = [
             ...todaysIncomeEvents.map(e => ({
-                id: e.id,
-                time: e.timestamp,
-                type: 'INCOME',
-                category: e.type,
-                description: e.description,
-                amount: e.amount || 0,
-                method: e.method,
-                user: e.user
+                id: e.id, time: e.timestamp, type: 'INCOME', category: e.type, description: e.description, amount: e.amount || 0, method: e.method, user: e.user
             })),
             ...todaysExpenses.map(e => ({
-                id: e.id,
-                time: `${e.date}T12:00:00`,
-                type: 'EXPENSE',
-                category: e.category,
-                description: e.description,
-                amount: e.amount,
-                method: null,
-                user: 'Admin'
+                id: e.id, time: `${e.date}T12:00:00`, type: 'EXPENSE', category: e.category, description: e.description, amount: e.amount, method: null, user: 'Admin'
             }))
         ];
         return events.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
     }, [todaysIncomeEvents, todaysExpenses]);
 
-    // Calcular totales para gráficos
     const incomeByMethod = useMemo(() => {
         const data = [
             { name: 'Efectivo', value: 0, color: '#22c55e', icon: Banknote },
@@ -96,12 +78,12 @@ export const CashboxModule: React.FC<CashboxModuleProps> = ({ config, role, acti
     };
 
     return (
-        <div className="max-w-6xl mx-auto space-y-6 animate-in fade-in pb-20">
-            {/* --- PANEL DE CONTROL DE CAJA --- */}
+        <div className="max-w-6xl mx-auto space-y-6 animate-in fade-in pb-20 min-w-0">
+            {/* Panel de Control */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 
                 {/* Control Caja */}
-                <div className="bg-slate-900/60 backdrop-blur-md p-6 rounded-2xl border border-white/10 shadow-xl flex flex-col items-center justify-center text-center">
+                <div className="glass-panel p-6 rounded-2xl flex flex-col items-center justify-center text-center">
                      <div className={`w-20 h-20 rounded-full flex items-center justify-center mb-4 shadow-lg border-4 transition-colors duration-500
                         ${status === 'OPEN' ? 'bg-green-500/20 text-green-400 border-green-500/30' : 'bg-red-500/20 text-red-400 border-red-500/30'}`}>
                         {status === 'OPEN' ? <Unlock size={40} /> : <Lock size={40} />}
@@ -110,13 +92,7 @@ export const CashboxModule: React.FC<CashboxModuleProps> = ({ config, role, acti
                     <div className="w-full max-w-xs space-y-3 mt-4">
                         <div className="relative">
                             <DollarSign className="absolute left-3 top-3 text-slate-400" size={18}/>
-                            <input 
-                                type="number" 
-                                value={amount}
-                                onChange={(e) => setAmount(e.target.value)}
-                                placeholder={status === 'CLOSED' ? "Monto Inicial" : "Monto Final"}
-                                className="w-full bg-slate-800 border border-white/10 rounded-xl py-2.5 pl-10 text-white font-mono"
-                            />
+                            <input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder={status === 'CLOSED' ? "Monto Inicial" : "Monto Final"} className="glass-input w-full rounded-xl py-2.5 pl-10 font-mono" />
                         </div>
                         <button onClick={handleAction} disabled={!amount} className={`w-full py-2.5 rounded-xl font-bold text-white transition-all active:scale-95 ${status === 'CLOSED' ? 'bg-green-600 hover:bg-green-500' : 'bg-red-600 hover:bg-red-500'}`}>
                             {status === 'CLOSED' ? 'ABRIR TURN' : 'CERRAR TURN'}
@@ -125,19 +101,13 @@ export const CashboxModule: React.FC<CashboxModuleProps> = ({ config, role, acti
                 </div>
 
                 {/* Gráfico de Ingresos */}
-                <div className="lg:col-span-2 bg-slate-900/60 backdrop-blur-md p-6 rounded-2xl border border-white/10 shadow-xl flex flex-col">
+                <div className="lg:col-span-2 glass-panel p-6 rounded-2xl flex flex-col min-w-0">
                     <div className="flex justify-between items-start mb-4">
-                        <div>
-                            <h3 className="text-lg font-bold text-white flex items-center gap-2"><TrendingUp size={20} className="text-blue-400"/> Ventas del Turno</h3>
-                        </div>
+                        <div><h3 className="text-lg font-bold text-white flex items-center gap-2"><TrendingUp size={20} className="text-blue-400"/> Ventas del Turno</h3></div>
                         <div className="text-right">
                             <span className="text-xs text-slate-400 uppercase font-bold">Ingresos</span>
                             <div className="text-2xl font-mono font-bold text-green-400">{formatMoney(totalIncome)}</div>
-                            {role === 'ADMIN' && totalExpensesAmount > 0 && (
-                                <div className="text-xs text-red-400 font-mono mt-1">
-                                    - {formatMoney(totalExpensesAmount)} (Gastos)
-                                </div>
-                            )}
+                            {role === 'ADMIN' && totalExpensesAmount > 0 && (<div className="text-xs text-red-400 font-mono mt-1">- {formatMoney(totalExpensesAmount)} (Gastos)</div>)}
                         </div>
                     </div>
 
@@ -170,66 +140,28 @@ export const CashboxModule: React.FC<CashboxModuleProps> = ({ config, role, acti
                 </div>
             </div>
 
-            {/* --- LISTADO DE MOVIMIENTOS --- */}
-            <div className="bg-slate-900/60 backdrop-blur-md p-6 rounded-2xl border border-white/10 shadow-lg">
-                <h3 className="text-white font-bold text-lg mb-4 flex items-center gap-2">
-                    <Calendar size={20}/> Detalle de Movimientos {role === 'ADMIN' ? '(Completo)' : '(Ventas)'}
-                </h3>
+            {/* Listado de Movimientos Glass */}
+            <div className="glass-panel p-6 rounded-2xl">
+                <h3 className="text-white font-bold text-lg mb-4 flex items-center gap-2"><Calendar size={20}/> Detalle de Movimientos {role === 'ADMIN' ? '(Completo)' : '(Ventas)'}</h3>
                 <div className="overflow-x-auto">
-                    <table className="w-full text-left text-sm text-slate-300">
+                    <table className="w-full text-left text-sm text-slate-300 min-w-[600px]">
                         <thead className="bg-white/5 text-xs uppercase font-bold text-slate-400">
-                            <tr>
-                                <th className="px-4 py-3 rounded-l-lg">Hora</th>
-                                <th className="px-4 py-3">Tipo</th>
-                                <th className="px-4 py-3">Descripción</th>
-                                <th className="px-4 py-3">Método</th>
-                                <th className="px-4 py-3 rounded-r-lg text-right">Monto</th>
-                            </tr>
+                            <tr><th className="px-4 py-3 rounded-l-lg">Hora</th><th className="px-4 py-3">Tipo</th><th className="px-4 py-3">Descripción</th><th className="px-4 py-3">Método</th><th className="px-4 py-3 rounded-r-lg text-right">Monto</th></tr>
                         </thead>
                         <tbody className="divide-y divide-white/5">
                             {timeline.map((act) => (
                                 <tr key={act.id} className="hover:bg-white/5 transition-colors">
-                                    <td className="px-4 py-3 font-mono text-slate-500 text-xs">
-                                        {new Date(act.time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                                    </td>
-                                    
+                                    <td className="px-4 py-3 font-mono text-slate-500 text-xs">{new Date(act.time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</td>
                                     <td className="px-4 py-3">
                                         {act.type === 'EXPENSE' ? (
-                                            <span className="px-2 py-0.5 rounded text-[10px] font-bold border bg-red-500/10 text-red-400 border-red-500/20 flex w-fit items-center gap-1">
-                                                <ArrowDownCircle size={10}/> GASTO
-                                            </span>
+                                            <span className="px-2 py-0.5 rounded text-[10px] font-bold border bg-red-500/10 text-red-400 border-red-500/20 flex w-fit items-center gap-1"><ArrowDownCircle size={10}/> GASTO</span>
                                         ) : (
-                                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold border flex w-fit items-center gap-1 ${
-                                                act.category === 'SALE' ? 'bg-green-500/10 text-green-400 border-green-500/20' :
-                                                act.category === 'BOOKING' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
-                                                'bg-yellow-500/10 text-yellow-400 border-yellow-500/20'
-                                            }`}>
-                                                <ArrowUpCircle size={10}/> {act.category === 'SHIFT' ? 'CAJA' : act.category}
-                                            </span>
+                                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold border flex w-fit items-center gap-1 ${act.category === 'SALE' ? 'bg-green-500/10 text-green-400 border-green-500/20' : act.category === 'BOOKING' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' : 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20'}`}><ArrowUpCircle size={10}/> {act.category === 'SHIFT' ? 'CAJA' : act.category}</span>
                                         )}
                                     </td>
-
-                                    <td className="px-4 py-3 text-white">
-                                        {act.description}
-                                        {act.type === 'EXPENSE' && <span className="text-xs text-slate-500 ml-2">({act.category})</span>}
-                                    </td>
-                                    
-                                    <td className="px-4 py-3 text-xs">
-                                        {act.method ? (
-                                            <span className="flex items-center gap-1">
-                                                {act.method === PaymentMethod.CASH && <Banknote size={12}/>}
-                                                {act.method === PaymentMethod.QR && <QrCode size={12}/>}
-                                                {act.method === PaymentMethod.TRANSFER && <CreditCard size={12}/>}
-                                                {act.method}
-                                            </span>
-                                        ) : (
-                                            <span className="text-slate-600">-</span>
-                                        )}
-                                    </td>
-                                    
-                                    <td className={`px-4 py-3 text-right font-mono font-bold ${act.type === 'EXPENSE' ? 'text-red-400' : 'text-white'}`}>
-                                        {act.type === 'EXPENSE' ? '-' : ''}{act.amount ? formatMoney(act.amount) : '-'}
-                                    </td>
+                                    <td className="px-4 py-3 text-white">{act.description}{act.type === 'EXPENSE' && <span className="text-xs text-slate-500 ml-2">({act.category})</span>}</td>
+                                    <td className="px-4 py-3 text-xs">{act.method ? (<span className="flex items-center gap-1">{act.method === PaymentMethod.CASH && <Banknote size={12}/>}{act.method === PaymentMethod.QR && <QrCode size={12}/>}{act.method === PaymentMethod.TRANSFER && <CreditCard size={12}/>}{act.method}</span>) : (<span className="text-slate-600">-</span>)}</td>
+                                    <td className={`px-4 py-3 text-right font-mono font-bold ${act.type === 'EXPENSE' ? 'text-red-400' : 'text-white'}`}>{act.type === 'EXPENSE' ? '-' : ''}{act.amount ? formatMoney(act.amount) : '-'}</td>
                                 </tr>
                             ))}
                         </tbody>
