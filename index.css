@@ -6,35 +6,18 @@ html, body, #root {
   height: 100%;
   margin: 0;
   padding: 0;
-  /* Fondo oscuro con degradado profundo para resaltar el vidrio */
-  background: radial-gradient(circle at 50% -20%, #1e293b 0%, #020617 100%);
-  background-attachment: fixed; /* Fija el fondo para que no se mueva al scrollear */
+  background-color: #0f172a;
   color: white;
-  overflow-x: hidden; /* CRÍTICO: Evita que la pantalla se desborde horizontalmente */
 }
 
-@layer components {
-  /* Panel de Vidrio: Fondo semitransparente + Blur + Borde sutil */
-  .glass-panel {
-    @apply bg-black/40 backdrop-blur-xl border border-white/10 shadow-[0_8px_32px_0_rgba(0,0,0,0.37)];
-  }
-  
-  /* Inputs de Vidrio: Mejor integración visual en formularios */
-  .glass-input {
-    @apply bg-white/5 border border-white/10 text-white placeholder-slate-400 focus:bg-white/10 focus:ring-2 focus:ring-blue-500/50 outline-none backdrop-blur-sm transition-all;
-  }
-}
-
-/* Arreglo para gráficos de Recharts */
+/* Arreglo para gráficos */
 .recharts-responsive-container {
     min-height: 300px;
     width: 100% !important;
     height: 100% !important;
 }
 
-/* Scrollbars personalizadas y estéticas */
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 10px; }
-::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.4); }
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: #0f172a; }
+::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
 .scrollbar-hide::-webkit-scrollbar { display: none; }
