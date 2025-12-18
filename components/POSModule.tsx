@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-// Añadí los iconos faltantes
 import { Search, ShoppingCart, Trash2, Plus, Minus, CreditCard, Banknote, QrCode, AlertTriangle, X, Copy, Share2, CheckCircle, Loader2 } from 'lucide-react';
 import { Product, CartItem, ClubConfig, PaymentMethod } from '../types';
 import { COLOR_THEMES } from '../constants';
@@ -11,16 +10,13 @@ interface POSModuleProps {
   onProcessSale: (items: CartItem[], total: number, method: PaymentMethod) => void;
 }
 
-const formatMoney = (amount?: number | null) => {
-    return (amount || 0).toLocaleString();
-};
+const formatMoney = (amount?: number | null) => (amount || 0).toLocaleString();
 
 export const POSModule: React.FC<POSModuleProps> = ({ products, config, onProcessSale }) => {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   
-  // Payment Modal State
   const [paymentModal, setPaymentModal] = useState<{ isOpen: boolean, type: PaymentMethod | null }>({ isOpen: false, type: null });
   const [qrUrl, setQrUrl] = useState<string | null>(null);
   const [isLoadingQr, setIsLoadingQr] = useState(false);
@@ -40,9 +36,7 @@ export const POSModule: React.FC<POSModuleProps> = ({ products, config, onProces
     });
   };
 
-  const removeFromCart = (productId: string) => {
-    setCart(prev => prev.filter(item => item.id !== productId));
-  };
+  const removeFromCart = (productId: string) => setCart(prev => prev.filter(item => item.id !== productId));
 
   const updateQuantity = (productId: string, delta: number) => {
     setCart(prev => prev.map(item => {
@@ -58,8 +52,6 @@ export const POSModule: React.FC<POSModuleProps> = ({ products, config, onProces
   };
 
   const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-  
-  // Cálculo del total con recargo
   const feePercentage = config.mpFeePercentage || 0;
   const surcharge = paymentModal.type === PaymentMethod.QR ? (total * feePercentage / 100) : 0;
   const finalTotal = total + surcharge;
@@ -70,10 +62,8 @@ export const POSModule: React.FC<POSModuleProps> = ({ products, config, onProces
   );
 
   const handlePaymentClick = async (method: PaymentMethod) => {
-      // CORRECCIÓN: Eliminamos el confirm() nativo. Siempre abrimos el modal.
       setPaymentModal({ isOpen: true, type: method });
       setQrUrl(null);
-      
       if (method === PaymentMethod.QR) {
           setIsLoadingQr(true);
           const url = await createCartPreference(cart, feePercentage);
@@ -91,29 +81,29 @@ export const POSModule: React.FC<POSModuleProps> = ({ products, config, onProces
   };
 
   return (
-    <div className="flex flex-col lg:flex-row h-[calc(100vh-100px)] gap-6 animate-in fade-in duration-500">
+    <div className="flex flex-col lg:flex-row h-[calc(100vh-140px)] gap-6 animate-in fade-in duration-500 pb-4 min-w-0">
       
       {/* Product Catalog */}
-      <div className="flex-1 flex flex-col bg-slate-900/60 backdrop-blur-md rounded-2xl border border-white/10 shadow-xl overflow-hidden">
+      <div className="flex-1 flex flex-col glass-panel rounded-2xl overflow-hidden min-w-0">
         <div className="p-4 border-b border-white/10 space-y-4">
             <div className="relative">
-                <input type="text" placeholder="Buscar producto..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="w-full bg-slate-800 border-none rounded-xl py-3 pl-10 text-white placeholder-slate-500 focus:ring-2 focus:ring-blue-500"/>
+                <input type="text" placeholder="Buscar producto..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="glass-input w-full rounded-xl py-3 pl-10 text-white"/>
                 <Search className="absolute left-3 top-3.5 text-slate-500 h-5 w-5"/>
             </div>
             <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
                 {categories.map((cat: string) => (
-                    <button key={cat} onClick={() => setSelectedCategory(cat)} className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${selectedCategory === cat ? `${theme.primary} text-white` : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}>{cat.charAt(0).toUpperCase() + cat.slice(1)}</button>
+                    <button key={cat} onClick={() => setSelectedCategory(cat)} className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors border ${selectedCategory === cat ? `${theme.primary} text-white border-white/20` : 'glass-input text-slate-400 hover:text-white'}`}>{cat.charAt(0).toUpperCase() + cat.slice(1)}</button>
                 ))}
             </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4">
+        <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
             <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
                 {filteredProducts.map(product => {
                     const hasStock = product.stock > 0;
                     return (
-                        <div key={product.id} onClick={() => hasStock && addToCart(product)} className={`group bg-slate-800/50 p-3 rounded-xl border border-white/5 flex flex-col transition-all ${hasStock ? 'hover:bg-slate-700/50 hover:border-blue-500/50 cursor-pointer active:scale-95' : 'opacity-50 grayscale cursor-not-allowed border-red-900/30'}`}>
-                            <div className="relative aspect-square rounded-lg overflow-hidden mb-3 bg-slate-900">
+                        <div key={product.id} onClick={() => hasStock && addToCart(product)} className={`group bg-white/5 p-3 rounded-xl border border-white/5 flex flex-col transition-all ${hasStock ? 'hover:bg-white/10 hover:border-blue-500/50 cursor-pointer active:scale-95' : 'opacity-50 grayscale cursor-not-allowed border-red-900/30'}`}>
+                            <div className="relative aspect-square rounded-lg overflow-hidden mb-3 bg-slate-900/50">
                                 <img src={product.imageUrl} alt={product.name} className="object-cover w-full h-full opacity-80 group-hover:opacity-100 transition-opacity" />
                                 {product.stock <= 0 ? (
                                     <div className="absolute inset-0 bg-black/60 flex items-center justify-center"><span className="bg-red-600 text-white text-xs font-bold px-2 py-1 rounded shadow-lg flex items-center gap-1"><AlertTriangle size={10}/> AGOTADO</span></div>
@@ -131,48 +121,46 @@ export const POSModule: React.FC<POSModuleProps> = ({ products, config, onProces
       </div>
 
       {/* Cart Sidebar */}
-      <div className="w-full lg:w-[400px] flex flex-col bg-white rounded-2xl shadow-2xl overflow-hidden">
-        <div className="p-5 bg-slate-100 border-b border-slate-200">
-            <h2 className="text-slate-800 font-bold text-xl flex items-center gap-2"><ShoppingCart className="text-slate-600"/> Carrito Actual</h2>
+      <div className="w-full lg:w-[400px] flex flex-col glass-panel rounded-2xl overflow-hidden shrink-0">
+        <div className="p-5 bg-white/5 border-b border-white/10">
+            <h2 className="text-white font-bold text-xl flex items-center gap-2"><ShoppingCart className="text-slate-400"/> Carrito Actual</h2>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50">
+        <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
             {cart.length === 0 ? (
-                <div className="h-full flex flex-col items-center justify-center text-slate-400"><ShoppingCart size={48} className="mb-4 opacity-20"/><p>Carrito vacío</p></div>
+                <div className="h-full flex flex-col items-center justify-center text-slate-500"><ShoppingCart size={48} className="mb-4 opacity-20"/><p>Carrito vacío</p></div>
             ) : (
                 cart.map(item => (
-                    <div key={item.id} className="flex items-center gap-3 bg-white p-3 rounded-xl shadow-sm border border-slate-200">
-                         <div className="w-12 h-12 rounded-lg bg-slate-100 overflow-hidden flex-shrink-0"><img src={item.imageUrl} className="w-full h-full object-cover" alt="" /></div>
-                         <div className="flex-1 min-w-0"><h4 className="text-slate-800 font-medium text-sm truncate">{item.name}</h4><p className="text-slate-500 text-xs">${formatMoney(item.price * item.quantity)}</p></div>
-                         <div className="flex items-center gap-2 bg-slate-100 rounded-lg p-1">
-                             <button onClick={(e) => { e.stopPropagation(); updateQuantity(item.id, -1); }} className="p-1 hover:bg-white rounded shadow-sm text-slate-600"><Minus size={14}/></button>
-                             <span className="text-sm font-bold w-4 text-center text-slate-800">{item.quantity}</span>
-                             <button onClick={(e) => { e.stopPropagation(); updateQuantity(item.id, 1); }} className="p-1 hover:bg-white rounded shadow-sm text-slate-600"><Plus size={14}/></button>
+                    <div key={item.id} className="flex items-center gap-3 bg-white/5 p-3 rounded-xl shadow-sm border border-white/5">
+                         <div className="w-12 h-12 rounded-lg bg-slate-900/50 overflow-hidden flex-shrink-0"><img src={item.imageUrl} className="w-full h-full object-cover" alt="" /></div>
+                         <div className="flex-1 min-w-0"><h4 className="text-white font-medium text-sm truncate">{item.name}</h4><p className="text-slate-400 text-xs">${formatMoney(item.price * item.quantity)}</p></div>
+                         <div className="flex items-center gap-2 bg-slate-900/50 rounded-lg p-1 border border-white/5">
+                             <button onClick={(e) => { e.stopPropagation(); updateQuantity(item.id, -1); }} className="p-1 hover:bg-white/10 rounded text-slate-400 hover:text-white"><Minus size={14}/></button>
+                             <span className="text-sm font-bold w-4 text-center text-white">{item.quantity}</span>
+                             <button onClick={(e) => { e.stopPropagation(); updateQuantity(item.id, 1); }} className="p-1 hover:bg-white/10 rounded text-slate-400 hover:text-white"><Plus size={14}/></button>
                          </div>
-                         <button onClick={() => removeFromCart(item.id)} className="text-red-400 hover:text-red-600 p-2"><Trash2 size={16}/></button>
+                         <button onClick={() => removeFromCart(item.id)} className="text-red-400 hover:text-red-300 p-2"><Trash2 size={16}/></button>
                     </div>
                 ))
             )}
         </div>
 
         {/* Totals & Pay */}
-        <div className="p-6 bg-white border-t border-slate-200 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]">
-            <div className="flex justify-between items-center mb-6"><span className="text-slate-500 font-medium">Total a Pagar</span><span className="text-3xl font-black text-slate-800">${formatMoney(total)}</span></div>
+        <div className="p-6 bg-white/5 border-t border-white/10">
+            <div className="flex justify-between items-center mb-6"><span className="text-slate-400 font-medium">Total a Pagar</span><span className="text-3xl font-black text-white">${formatMoney(total)}</span></div>
             <div className="grid grid-cols-3 gap-3">
-                <button onClick={() => handlePaymentClick(PaymentMethod.CASH)} disabled={cart.length === 0} className="flex flex-col items-center justify-center p-3 rounded-xl border-2 border-green-100 bg-green-50 text-green-700 hover:bg-green-100 hover:border-green-200 transition-all disabled:opacity-50"><Banknote size={24} className="mb-1"/><span className="text-xs font-bold">Efectivo</span></button>
-                <button onClick={() => handlePaymentClick(PaymentMethod.QR)} disabled={cart.length === 0} className="flex flex-col items-center justify-center p-3 rounded-xl border-2 border-blue-100 bg-blue-50 text-blue-700 hover:bg-blue-100 hover:border-blue-200 transition-all disabled:opacity-50"><QrCode size={24} className="mb-1"/><span className="text-xs font-bold">QR MP</span></button>
-                <button onClick={() => handlePaymentClick(PaymentMethod.TRANSFER)} disabled={cart.length === 0} className="flex flex-col items-center justify-center p-3 rounded-xl border-2 border-purple-100 bg-purple-50 text-purple-700 hover:bg-purple-100 hover:border-purple-200 transition-all disabled:opacity-50"><CreditCard size={24} className="mb-1"/><span className="text-xs font-bold">Transf.</span></button>
+                <button onClick={() => handlePaymentClick(PaymentMethod.CASH)} disabled={cart.length === 0} className="flex flex-col items-center justify-center p-3 rounded-xl border border-green-500/30 bg-green-500/10 text-green-400 hover:bg-green-500/20 transition-all disabled:opacity-30 disabled:cursor-not-allowed"><Banknote size={24} className="mb-1"/><span className="text-xs font-bold">Efectivo</span></button>
+                <button onClick={() => handlePaymentClick(PaymentMethod.QR)} disabled={cart.length === 0} className="flex flex-col items-center justify-center p-3 rounded-xl border border-blue-500/30 bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 transition-all disabled:opacity-30 disabled:cursor-not-allowed"><QrCode size={24} className="mb-1"/><span className="text-xs font-bold">QR MP</span></button>
+                <button onClick={() => handlePaymentClick(PaymentMethod.TRANSFER)} disabled={cart.length === 0} className="flex flex-col items-center justify-center p-3 rounded-xl border border-purple-500/30 bg-purple-500/10 text-purple-400 hover:bg-purple-500/20 transition-all disabled:opacity-30 disabled:cursor-not-allowed"><CreditCard size={24} className="mb-1"/><span className="text-xs font-bold">Transf.</span></button>
             </div>
         </div>
       </div>
 
       {/* --- PAYMENT MODAL --- */}
       {paymentModal.isOpen && (
-          <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-in fade-in">
-              <div className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-sm shadow-2xl p-6 relative">
+          <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
+              <div className="glass-panel w-full max-w-sm rounded-2xl p-6 relative">
                   <button onClick={() => setPaymentModal({ isOpen: false, type: null })} className="absolute right-4 top-4 text-slate-400 hover:text-white"><X size={20}/></button>
-                  
-                  {/* HEADER DEL MODAL (Icono y Título) */}
                   <div className="text-center mb-6">
                       <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg border border-white/5 
                         ${paymentModal.type === PaymentMethod.CASH ? 'bg-green-500/20 text-green-500 border-green-500/30' : ''}
@@ -188,93 +176,31 @@ export const POSModule: React.FC<POSModuleProps> = ({ products, config, onProces
                           {paymentModal.type === PaymentMethod.QR && 'Cobro con QR'}
                           {paymentModal.type === PaymentMethod.TRANSFER && 'Transferencia'}
                       </h3>
-                      
-                      {/* Recargo Comisión (Solo QR) */}
                       {paymentModal.type === PaymentMethod.QR && (config.mpFeePercentage || 0) > 0 && (
-                          <div className="text-xs text-orange-400 mb-2 font-bold bg-orange-500/10 px-2 py-1 rounded inline-block border border-orange-500/20">
-                             Recargo: {config.mpFeePercentage}% aplicado
-                          </div>
+                          <div className="text-xs text-orange-400 mb-2 font-bold bg-orange-500/10 px-2 py-1 rounded inline-block border border-orange-500/20">Recargo: {config.mpFeePercentage}% aplicado</div>
                       )}
-
-                      {/* Total a Cobrar */}
-                      <div className="bg-slate-800/50 p-4 rounded-xl border border-white/5 mt-4">
+                      <div className="bg-white/5 p-4 rounded-xl border border-white/5 mt-4">
                         <p className="text-slate-400 text-sm mb-1">Total a cobrar</p>
-                        <span className="text-white font-bold text-2xl block">
-                              ${formatMoney(finalTotal)}
-                        </span>
+                        <span className="text-white font-bold text-2xl block">${formatMoney(finalTotal)}</span>
                       </div>
                   </div>
 
-                  {/* CONTENIDO VARIABLE SEGÚN MÉTODO */}
+                  {paymentModal.type === PaymentMethod.CASH && (<p className="text-slate-300 text-sm text-center mb-6">¿Confirmas que has recibido el dinero total?</p>)}
 
-                  {/* --- EFECTIVO --- */}
-                  {paymentModal.type === PaymentMethod.CASH && (
-                       <p className="text-slate-300 text-sm text-center mb-6">
-                           ¿Confirmas que has recibido el dinero total?
-                       </p>
-                  )}
-
-                  {/* --- QR CONTENT --- */}
                   {paymentModal.type === PaymentMethod.QR && (
                       <div className="bg-white p-4 rounded-xl mb-6 mx-auto w-fit shadow-inner min-h-[230px] flex flex-col items-center justify-center">
-                          {isLoadingQr ? (
-                              <div className="flex flex-col items-center animate-pulse">
-                                  <Loader2 className="animate-spin text-blue-500 mb-2" size={32}/>
-                                  <span className="text-xs text-slate-500 font-bold">Generando QR...</span>
-                              </div>
-                          ) : qrUrl ? (
-                              <>
-                                  <img 
-                                      src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrUrl)}`}
-                                      alt="QR de Pago" 
-                                      className="w-48 h-48 object-contain"
-                                  />
-                                  <p className="text-black/50 text-[10px] text-center mt-2 font-mono">Escanea con Mercado Pago</p>
-                              </>
-                          ) : (
-                              <p className="text-red-500 text-xs font-bold text-center p-4">
-                                  Error al conectar con MP.<br/>Verifica tu Token.
-                              </p>
-                          )}
+                          {isLoadingQr ? (<div className="flex flex-col items-center animate-pulse"><Loader2 className="animate-spin text-blue-500 mb-2" size={32}/><span className="text-xs text-slate-500 font-bold">Generando QR...</span></div>) : qrUrl ? (<><img src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrUrl)}`} alt="QR de Pago" className="w-48 h-48 object-contain"/><p className="text-black/50 text-[10px] text-center mt-2 font-mono">Escanea con Mercado Pago</p></>) : (<p className="text-red-500 text-xs font-bold text-center p-4">Error al conectar con MP.</p>)}
                       </div>
                   )}
 
-                  {/* --- TRANSFER CONTENT --- */}
                   {paymentModal.type === PaymentMethod.TRANSFER && (
                       <div className="space-y-4 mb-6">
-                          <div className="bg-slate-800/50 p-4 rounded-xl border border-white/5 text-center">
-                              <p className="text-xs text-slate-500 uppercase font-bold mb-1">Alias / CBU</p>
-                              <div className="flex items-center justify-center gap-2">
-                                  <span className="text-xl font-mono text-white font-bold tracking-wider select-all">
-                                      {config.mpAlias || 'SIN ALIAS'}
-                                  </span>
-                                  <button onClick={() => navigator.clipboard.writeText(config.mpAlias || '')} className="text-slate-400 hover:text-white p-1" title="Copiar"><Copy size={14}/></button>
-                              </div>
-                              <p className="text-[10px] text-slate-500 mt-2">Pide el comprobante al cliente.</p>
-                          </div>
-                          
-                          <button 
-                              onClick={() => {
-                                  const text = `Hola! Para confirmar tu compra de $${formatMoney(finalTotal)}, por favor transferí al alias: *${config.mpAlias}* y envianos el comprobante.`;
-                                  window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
-                              }}
-                              className="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2"
-                          >
-                              <Share2 size={18}/> Enviar Datos por WhatsApp
-                          </button>
+                          <div className="bg-slate-800/50 p-4 rounded-xl border border-white/5 text-center"><p className="text-xs text-slate-500 uppercase font-bold mb-1">Alias / CBU</p><div className="flex items-center justify-center gap-2"><span className="text-xl font-mono text-white font-bold tracking-wider select-all">{config.mpAlias || 'SIN ALIAS'}</span><button onClick={() => navigator.clipboard.writeText(config.mpAlias || '')} className="text-slate-400 hover:text-white p-1" title="Copiar"><Copy size={14}/></button></div><p className="text-[10px] text-slate-500 mt-2">Pide el comprobante al cliente.</p></div>
+                          <button onClick={() => { const text = `Hola! Para confirmar tu compra de $${formatMoney(finalTotal)}, por favor transferí al alias: *${config.mpAlias}* y envianos el comprobante.`; window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank'); }} className="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2"><Share2 size={18}/> Enviar Datos por WhatsApp</button>
                       </div>
                   )}
 
-                  {/* BOTÓN FINAL DE CONFIRMACIÓN */}
-                  <button 
-                      onClick={confirmModalPayment}
-                      className={`w-full font-bold py-3 rounded-xl shadow-lg flex items-center justify-center gap-2 transition-all active:scale-95
-                        ${paymentModal.type === PaymentMethod.CASH ? 'bg-green-600 hover:bg-green-500 text-white shadow-green-500/20' : 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-500/20'}
-                      `}
-                  >
-                      <CheckCircle size={20}/> 
-                      {paymentModal.type === PaymentMethod.CASH ? 'Sí, Dinero Recibido' : 'Confirmar Cobro Realizado'}
-                  </button>
+                  <button onClick={confirmModalPayment} className={`w-full font-bold py-3 rounded-xl shadow-lg flex items-center justify-center gap-2 transition-all active:scale-95 ${paymentModal.type === PaymentMethod.CASH ? 'bg-green-600 hover:bg-green-500 text-white shadow-green-500/20' : 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-500/20'}`}><CheckCircle size={20}/> {paymentModal.type === PaymentMethod.CASH ? 'Sí, Dinero Recibido' : 'Confirmar Cobro Realizado'}</button>
               </div>
           </div>
       )}
