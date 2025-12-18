@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Package, Plus, Search, Edit2, Trash2, AlertTriangle, Image as ImageIcon, X, Check, Upload, ChevronRight } from 'lucide-react';
+import { Package, Plus, Search, Edit2, Trash2, AlertTriangle, Image as ImageIcon, X, Check, Upload, ChevronRight, Filter } from 'lucide-react';
 import { Product, ClubConfig } from '../types';
 import { COLOR_THEMES } from '../constants';
 
@@ -14,13 +14,14 @@ interface InventoryModuleProps {
 const EmptyProduct: Product = {
     id: '',
     name: '',
-    category: 'Bebidas',
+    category: 'Bebidas', // default
     price: 0,
     stock: 0,
     minStockAlert: 5,
     imageUrl: ''
 };
 
+// Helper para redimensionar imágenes y evitar errores de tamaño en Firebase
 const processImage = (file: File): Promise<string> => {
     return new Promise((resolve) => {
         const reader = new FileReader();
@@ -30,16 +31,16 @@ const processImage = (file: File): Promise<string> => {
             img.src = event.target?.result as string;
             img.onload = () => {
                 const canvas = document.createElement('canvas');
-                const MAX_WIDTH = 500;
+                const MAX_WIDTH = 500; // Reducimos a 500px para no saturar la BD
                 const scaleSize = MAX_WIDTH / img.width;
                 canvas.width = MAX_WIDTH;
                 canvas.height = img.height * scaleSize;
                 const ctx = canvas.getContext('2d');
                 if (ctx) {
                     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                    resolve(canvas.toDataURL(file.type));
+                    resolve(canvas.toDataURL(file.type)); // Retorna imagen optimizada
                 } else {
-                    resolve(event.target?.result as string);
+                    resolve(event.target?.result as string); // Fallback
                 }
             };
         };
@@ -54,8 +55,10 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({ products, conf
   const [categoryFilter, setCategoryFilter] = useState('Todas');
   
   const theme = COLOR_THEMES[config.courtColorTheme];
+  // Genera las categorías dinámicamente para el filtro basándose en los productos existentes
   const categories = ['Todas', ...Array.from(new Set(products.map(p => p.category)))];
 
+  // Handlers
   const handleOpenAdd = () => {
       setEditingProduct(null);
       setFormData({...EmptyProduct, id: Date.now().toString()});
@@ -72,11 +75,12 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({ products, conf
       const file = e.target.files?.[0];
       if (file) {
           try {
+              // Procesamos la imagen para reducir tamaño
               const optimizedImage = await processImage(file);
               setFormData(prev => ({ ...prev, imageUrl: optimizedImage }));
           } catch (error) {
               console.error("Error procesando imagen", error);
-              alert("Error al procesar la imagen.");
+              alert("Error al procesar la imagen. Intenta con otra.");
           }
       }
   };
@@ -84,14 +88,20 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({ products, conf
   const handleSubmit = (e: React.FormEvent) => {
       e.preventDefault();
       if (!formData.name || formData.price <= 0) return;
-      if (editingProduct) onUpdateProduct(formData);
-      else onAddProduct(formData);
+
+      if (editingProduct) {
+          onUpdateProduct(formData);
+      } else {
+          onAddProduct(formData);
+      }
       setIsModalOpen(false);
   };
 
   const handleDelete = (id: string, e: React.MouseEvent) => {
       e.stopPropagation();
-      if(window.confirm('¿Estás seguro de eliminar este producto?')) onDeleteProduct(id);
+      if(window.confirm('¿Estás seguro de eliminar este producto?')) {
+          onDeleteProduct(id);
+      }
   };
 
   const filteredProducts = products.filter(p => {
@@ -102,8 +112,8 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({ products, conf
 
   return (
     <div className="space-y-4 animate-in slide-in-from-right-4 duration-500 pb-20 md:pb-0">
-      {/* Header Compacto con Glassmorphism */}
-      <div className="glass-panel p-4 rounded-xl flex flex-col md:flex-row gap-4 justify-between items-center sticky top-0 z-20">
+      {/* Header Compacto */}
+      <div className="bg-slate-900/60 p-4 rounded-xl border border-white/10 backdrop-blur-md shadow-xl flex flex-col md:flex-row gap-4 justify-between items-center sticky top-0 z-20">
         <div className="flex items-center gap-3 w-full md:w-auto">
              <div className="bg-blue-500/20 p-2 rounded-lg text-blue-400">
                 <Package size={24}/> 
@@ -121,7 +131,7 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({ products, conf
                     placeholder="Buscar..." 
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="glass-input w-full rounded-lg py-2.5 pl-9 text-sm"
+                    className="w-full bg-slate-800 border border-white/10 rounded-lg py-2.5 pl-9 text-sm text-white focus:ring-2 focus:ring-blue-500"
                 />
                 <Search className="absolute left-3 top-3 text-slate-500 h-4 w-4"/>
             </div>
@@ -130,9 +140,9 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({ products, conf
                 <select 
                     value={categoryFilter}
                     onChange={(e) => setCategoryFilter(e.target.value)}
-                    className="glass-input rounded-lg px-3 py-2 text-sm cursor-pointer"
+                    className="bg-slate-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:ring-2 focus:ring-blue-500"
                 >
-                    {categories.map(c => <option key={c} value={c} className="bg-slate-900 text-white">{c}</option>)}
+                    {categories.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
 
                 <button 
@@ -145,9 +155,9 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({ products, conf
         </div>
       </div>
 
-      {/* List View Glassmorphism */}
-      <div className="glass-panel rounded-xl overflow-hidden">
-          {/* Table Header */}
+      {/* List View (Table style for PWA) */}
+      <div className="bg-slate-900/60 backdrop-blur-md rounded-xl border border-white/10 overflow-hidden shadow-lg">
+          {/* Table Header (Desktop only) */}
           <div className="hidden md:grid grid-cols-[3fr_1.5fr_1.5fr_1fr_0.5fr] gap-4 p-4 border-b border-white/10 bg-white/5 text-xs font-semibold text-slate-400 uppercase tracking-wider">
               <div>Producto</div>
               <div>Categoría</div>
@@ -165,8 +175,10 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({ products, conf
                         onClick={() => handleOpenEdit(product)}
                         className="group relative flex flex-col md:grid md:grid-cols-[3fr_1.5fr_1.5fr_1fr_0.5fr] gap-3 md:gap-4 p-4 hover:bg-white/5 transition-colors cursor-pointer"
                     >
+                        {/* Status Stripe (Mobile) */}
                         <div className={`absolute left-0 top-0 bottom-0 w-1 ${isLowStock ? 'bg-red-500' : 'bg-green-500'} md:hidden`}></div>
-                        
+
+                        {/* Product Info (Name + Image) */}
                         <div className="flex items-center gap-3">
                             <div className="w-12 h-12 rounded-lg bg-slate-800 flex-shrink-0 overflow-hidden border border-white/10 relative">
                                 {product.imageUrl ? (
@@ -174,6 +186,7 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({ products, conf
                                 ) : (
                                     <div className="w-full h-full flex items-center justify-center text-slate-600"><ImageIcon size={20}/></div>
                                 )}
+                                {isLowStock && <div className="absolute inset-0 bg-red-500/20 md:hidden"></div>}
                             </div>
                             <div className="min-w-0 flex-1">
                                 <h3 className="text-white font-semibold text-sm leading-tight truncate pr-2">{product.name}</h3>
@@ -181,10 +194,12 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({ products, conf
                             </div>
                         </div>
 
+                        {/* Category (Desktop) */}
                         <div className="hidden md:flex items-center text-sm text-slate-400">
                             <span className="bg-white/5 px-2 py-1 rounded text-xs">{product.category}</span>
                         </div>
 
+                        {/* Stock Status */}
                         <div className="flex items-center justify-between md:justify-start">
                             <div className={`flex items-center gap-2 px-2 py-1 rounded text-xs font-medium border
                                 ${isLowStock 
@@ -193,19 +208,37 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({ products, conf
                             `}>
                                 {isLowStock ? <AlertTriangle size={12}/> : <Check size={12}/>}
                                 <span>{product.stock} un.</span>
+                                {isLowStock && <span className="hidden sm:inline">- Reponer</span>}
                             </div>
+                            {/* Mobile Price moves here */}
                             <span className="md:hidden font-mono font-bold text-white">${product.price}</span>
                         </div>
 
+                        {/* Price (Desktop) */}
                         <div className="hidden md:flex items-center justify-end font-mono font-bold text-white text-sm">
                             ${product.price}
                         </div>
 
+                        {/* Actions */}
                         <div className="hidden md:flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                             <button onClick={(e) => { e.stopPropagation(); handleOpenEdit(product); }} className="p-2 hover:bg-blue-500/20 hover:text-blue-400 rounded-lg text-slate-500"><Edit2 size={16}/></button>
-                             <button onClick={(e) => handleDelete(product.id, e)} className="p-2 hover:bg-red-500/20 hover:text-red-400 rounded-lg text-slate-500"><Trash2 size={16}/></button>
+                             <button 
+                                onClick={(e) => { e.stopPropagation(); handleOpenEdit(product); }} 
+                                className="p-2 hover:bg-blue-500/20 hover:text-blue-400 rounded-lg text-slate-500 transition-colors"
+                             >
+                                 <Edit2 size={16}/>
+                             </button>
+                             <button 
+                                onClick={(e) => handleDelete(product.id, e)} 
+                                className="p-2 hover:bg-red-500/20 hover:text-red-400 rounded-lg text-slate-500 transition-colors"
+                             >
+                                 <Trash2 size={16}/>
+                             </button>
                         </div>
-                        <div className="absolute right-4 top-1/2 -translate-y-1/2 md:hidden text-slate-600"><ChevronRight size={16} /></div>
+                        
+                        {/* Mobile Chevron (Indicates clickable) */}
+                        <div className="absolute right-4 top-1/2 -translate-y-1/2 md:hidden text-slate-600">
+                            <ChevronRight size={16} />
+                        </div>
                     </div>
                   );
               })}
@@ -219,24 +252,29 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({ products, conf
           )}
       </div>
 
-      {/* Add/Edit Modal con Glassmorphism */}
+      {/* Add/Edit Modal */}
       {isModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-              <div className="glass-panel rounded-2xl w-full max-w-lg shadow-2xl relative overflow-hidden flex flex-col max-h-[90vh]">
-                  <div className="p-5 border-b border-white/10 flex justify-between items-center bg-white/5">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+              <div className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-lg shadow-2xl relative overflow-hidden flex flex-col max-h-[90vh]">
+                  <div className="p-5 border-b border-white/10 flex justify-between items-center bg-slate-900/50">
                       <h3 className="text-lg font-bold text-white">{editingProduct ? 'Editar Producto' : 'Nuevo Producto'}</h3>
                       <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-white p-2 rounded-lg hover:bg-white/5"><X size={20}/></button>
                   </div>
                   
                   <form onSubmit={handleSubmit} className="p-6 space-y-5 overflow-y-auto">
                       <div className="flex gap-4">
-                           <div className="w-20 h-20 bg-slate-800 rounded-xl border-2 border-dashed border-white/20 flex items-center justify-center relative overflow-hidden group cursor-pointer hover:border-blue-500 transition-all flex-shrink-0">
+                           {/* Image Upload Preview */}
+                           <div className="w-20 h-20 bg-slate-800 rounded-xl border-2 border-dashed border-white/20 flex items-center justify-center relative overflow-hidden group cursor-pointer hover:border-blue-500 hover:bg-slate-800/80 transition-all flex-shrink-0">
                                 {formData.imageUrl ? (
                                     <img src={formData.imageUrl} className="w-full h-full object-cover" alt="Preview"/>
                                 ) : (
                                     <ImageIcon className="text-slate-500 group-hover:text-blue-500"/>
                                 )}
+                                
+                                {/* z-20 para que esté por encima de todo */}
                                 <input type="file" className="absolute inset-0 opacity-0 cursor-pointer z-20" accept="image/*" onChange={handleImageUpload} />
+                                
+                                {/* pointer-events-none para no bloquear el clic */}
                                 <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
                                     <Upload className="text-white" size={16}/>
                                 </div>
@@ -245,17 +283,28 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({ products, conf
                            <div className="flex-1 space-y-3">
                                 <div>
                                     <label className="block text-xs font-medium text-slate-400 mb-1">Nombre</label>
-                                    <input required type="text" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="glass-input w-full rounded-lg p-2.5 text-sm" placeholder="Ej: Pelotas X3" />
+                                    <input 
+                                        required
+                                        type="text" 
+                                        value={formData.name}
+                                        onChange={e => setFormData({...formData, name: e.target.value})}
+                                        className="w-full bg-slate-800 border border-white/10 rounded-lg p-2.5 text-sm text-white focus:ring-2 focus:ring-blue-500"
+                                        placeholder="Ej: Pelotas X3"
+                                    />
                                 </div>
                                 <div>
                                     <label className="block text-xs font-medium text-slate-400 mb-1">Categoría</label>
-                                    <select value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})} className="glass-input w-full rounded-lg p-2.5 text-sm cursor-pointer">
-                                        <option className="bg-slate-900" value="Bebidas">Bebidas</option>
-                                        <option className="bg-slate-900" value="Comestibles">Comestibles</option>
-                                        <option className="bg-slate-900" value="Accesorios">Accesorios</option>
-                                        <option className="bg-slate-900" value="Paletas">Paletas</option>
-                                        <option className="bg-slate-900" value="Indumentaria">Indumentaria</option>
-                                        <option className="bg-slate-900" value="Servicios">Servicios</option>
+                                    <select 
+                                        value={formData.category}
+                                        onChange={e => setFormData({...formData, category: e.target.value})}
+                                        className="w-full bg-slate-800 border border-white/10 rounded-lg p-2.5 text-sm text-white focus:ring-2 focus:ring-blue-500"
+                                    >
+                                        <option value="Bebidas">Bebidas</option>
+                                        <option value="Comestibles">Comestibles</option> {/* NUEVA CATEGORÍA */}
+                                        <option value="Accesorios">Accesorios</option>
+                                        <option value="Paletas">Paletas</option>
+                                        <option value="Indumentaria">Indumentaria</option>
+                                        <option value="Servicios">Servicios</option>
                                     </select>
                                 </div>
                            </div>
@@ -264,30 +313,66 @@ export const InventoryModule: React.FC<InventoryModuleProps> = ({ products, conf
                       <div className="grid grid-cols-2 gap-4">
                           <div>
                               <label className="block text-xs font-medium text-slate-400 mb-1">Precio ($)</label>
-                              <input required type="number" min="0" value={formData.price} onChange={e => setFormData({...formData, price: parseFloat(e.target.value)})} className="glass-input w-full rounded-lg p-2.5 text-white font-mono" />
+                              <div className="relative">
+                                  <span className="absolute left-3 top-2.5 text-slate-500">$</span>
+                                  <input 
+                                      required
+                                      type="number" 
+                                      min="0"
+                                      value={formData.price}
+                                      onChange={e => setFormData({...formData, price: parseFloat(e.target.value)})}
+                                      className="w-full bg-slate-800 border border-white/10 rounded-lg p-2.5 pl-7 text-white focus:ring-2 focus:ring-blue-500 font-mono"
+                                  />
+                              </div>
                           </div>
                           <div>
                               <label className="block text-xs font-medium text-slate-400 mb-1">Stock</label>
-                              <input required type="number" min="0" value={formData.stock} onChange={e => setFormData({...formData, stock: parseInt(e.target.value)})} className="glass-input w-full rounded-lg p-2.5 text-white font-mono" />
+                              <input 
+                                  required
+                                  type="number" 
+                                  min="0"
+                                  value={formData.stock}
+                                  onChange={e => setFormData({...formData, stock: parseInt(e.target.value)})}
+                                  className="w-full bg-slate-800 border border-white/10 rounded-lg p-2.5 text-white focus:ring-2 focus:ring-blue-500 font-mono"
+                              />
                           </div>
                       </div>
 
-                      <div className="bg-white/5 p-3 rounded-lg border border-white/5">
+                      <div className="bg-slate-800/50 p-3 rounded-lg border border-white/5">
                           <div className="flex justify-between mb-2">
                              <label className="block text-xs font-medium text-slate-400">Alerta Stock Bajo</label>
                              <span className="text-xs font-mono text-yellow-500">{formData.minStockAlert} un.</span>
                           </div>
-                          <input type="range" min="0" max="50" value={formData.minStockAlert} onChange={e => setFormData({...formData, minStockAlert: parseInt(e.target.value)})} className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-yellow-400" />
+                          <input 
+                              type="range" 
+                              min="0" 
+                              max="50" 
+                              value={formData.minStockAlert} 
+                              onChange={e => setFormData({...formData, minStockAlert: parseInt(e.target.value)})}
+                              className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-yellow-400"
+                          />
                       </div>
                       
                       {editingProduct && (
-                        <button type="button" onClick={(e) => { handleDelete(editingProduct.id, e as any); setIsModalOpen(false); }} className="w-full py-2 flex items-center justify-center gap-2 text-red-400 text-sm hover:bg-red-500/10 rounded-lg transition-colors">
+                        <button 
+                            type="button"
+                            onClick={(e) => {
+                                handleDelete(editingProduct.id, e as any);
+                                setIsModalOpen(false);
+                            }}
+                            className="w-full py-2 flex items-center justify-center gap-2 text-red-400 text-sm hover:bg-red-500/10 rounded-lg transition-colors"
+                        >
                             <Trash2 size={16}/> Eliminar Producto
                         </button>
                       )}
 
                       <div className="pt-2">
-                          <button type="submit" className={`w-full py-3 rounded-xl font-bold text-white flex items-center justify-center gap-2 ${theme.primary} hover:opacity-90 shadow-lg active:scale-95 transition-all`}>
+                          <button 
+                            type="submit" 
+                            className={`w-full py-3 rounded-xl font-bold text-white flex items-center justify-center gap-2
+                                ${theme.primary} hover:opacity-90 shadow-lg shadow-blue-500/20 active:scale-95 transition-all
+                            `}
+                          >
                               <Check size={18}/> Guardar Cambios
                           </button>
                       </div>
