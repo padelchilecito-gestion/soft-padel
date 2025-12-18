@@ -6,8 +6,21 @@ html, body, #root {
   height: 100%;
   margin: 0;
   padding: 0;
-  background-color: #0f172a;
+  /* Fondo oscuro con degradado profundo para resaltar el vidrio */
+  background: radial-gradient(circle at 50% -20%, #1e293b 0%, #020617 100%);
   color: white;
+  overflow-x: hidden; /* Evita scroll horizontal global */
+}
+
+/* --- CLASE MAESTRA: VIDRIO OSCURO --- */
+@layer components {
+  .glass-panel {
+    @apply bg-black/40 backdrop-blur-xl border border-white/10 shadow-[0_8px_32px_0_rgba(0,0,0,0.37)];
+  }
+  
+  .glass-input {
+    @apply bg-white/5 border border-white/10 text-white placeholder-slate-400 focus:bg-white/10 focus:ring-2 focus:ring-blue-500/50 outline-none backdrop-blur-sm;
+  }
 }
 
 /* Arreglo para gráficos */
@@ -17,7 +30,9 @@ html, body, #root {
     height: 100% !important;
 }
 
-::-webkit-scrollbar { width: 8px; height: 8px; }
-::-webkit-scrollbar-track { background: #0f172a; }
-::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+/* Scrollbars más estéticas */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.4); }
 .scrollbar-hide::-webkit-scrollbar { display: none; }
