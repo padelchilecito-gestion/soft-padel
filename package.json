@@ -10,6 +10,8 @@
   },
   "dependencies": {
     "firebase": "^12.6.0",
+    "jspdf": "^2.5.1",
+    "jspdf-autotable": "^3.8.2",
     "lucide-react": "^0.556.0",
     "mercadopago": "^2.0.8",
     "react": "^19.2.1",
