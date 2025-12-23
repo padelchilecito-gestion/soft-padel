@@ -53,6 +53,7 @@ const deserializeConfig = (data: any): ClubConfig => {
 
 // --- BOOKINGS ---
 export const subscribeBookings = (callback: (data: Booking[]) => void, onNewBooking?: (booking: Booking) => void) => {
+    // Limitamos reservas para no traer histórico infinito si no es necesario (opcional, aquí traigo todo para el calendario)
     const q = query(collection(db, BOOKINGS_COL));
     let isFirstLoad = true;
     return onSnapshot(q, (snapshot) => {
@@ -111,8 +112,13 @@ export const subscribeConfig = (callback: (data: ClubConfig) => void) => {
 };
 export const updateConfig = async (config: ClubConfig) => setDoc(doc(db, CONFIG_COL, CONFIG_DOC_ID), serializeConfig(config));
 
-// --- ACTIVITY ---
-export const subscribeActivity = (cb: (d: ActivityLogEntry[]) => void) => onSnapshot(query(collection(db, ACTIVITY_COL), orderBy('timestamp', 'desc')), (s) => cb(s.docs.map(d => ({ id: d.id, ...d.data() } as ActivityLogEntry))));
+// --- ACTIVITY (OPTIMIZADO) ---
+export const subscribeActivity = (cb: (d: ActivityLogEntry[]) => void) => {
+    // AHORA SOLO TRAE LOS ÚLTIMOS 200 REGISTROS para evitar lentitud
+    const q = query(collection(db, ACTIVITY_COL), orderBy('timestamp', 'desc'), limit(200));
+    return onSnapshot(q, (s) => cb(s.docs.map(d => ({ id: d.id, ...d.data() } as ActivityLogEntry))));
+};
+
 export const logActivity = async (entry: ActivityLogEntry) => { const { id, ...r } = sanitize(entry); await addDoc(collection(db, ACTIVITY_COL), r); };
 
 // --- GASTOS ---
@@ -137,7 +143,6 @@ export const runMaintenance = async () => {
     console.log("🔄 Iniciando mantenimiento...");
 
     try {
-        // Buscar Actividades Viejas (Límite 500 para no saturar)
         const oldLogsQuery = query(
             collection(db, ACTIVITY_COL),
             where('timestamp', '<', cutoffStr),
@@ -153,13 +158,11 @@ export const runMaintenance = async () => {
         const batch = writeBatch(db);
         const summariesCache: { [key: string]: MonthlySummary } = {};
 
-        // Procesar cada registro viejo
         for (const docSnap of snapshot.docs) {
             const data = docSnap.data() as ActivityLogEntry;
             const date = new Date(data.timestamp);
-            const monthKey = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}`; // Ej: "2023-10"
+            const monthKey = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}`;
             
-            // Inicializar resumen en memoria si no existe
             if (!summariesCache[monthKey]) {
                 const summaryRef = doc(db, SUMMARIES_COL, monthKey);
                 const summarySnap = await getDoc(summaryRef);
@@ -179,19 +182,15 @@ export const runMaintenance = async () => {
                 }
             }
 
-            // Sumar al acumulado si es un ingreso
             if (data.amount) {
                 if (data.type === 'SALE' || data.type === 'BOOKING') {
                     summariesCache[monthKey].totalIncome += data.amount;
                 }
             }
             summariesCache[monthKey].operationCount += 1;
-
-            // Borrar el registro original
             batch.delete(docSnap.ref);
         }
 
-        // Guardar los resúmenes actualizados
         Object.values(summariesCache).forEach(summary => {
             const ref = doc(db, SUMMARIES_COL, summary.id);
             summary.lastUpdated = new Date().toISOString();
