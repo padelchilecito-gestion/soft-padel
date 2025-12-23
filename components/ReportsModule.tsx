@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Booking, ActivityLogEntry, Expense, MonthlySummary } from '../types';
-import { DollarSign, TrendingDown, TrendingUp, Wallet, Plus, Trash2, Calendar, FileText, Archive, RefreshCw } from 'lucide-react';
+import { DollarSign, TrendingDown, TrendingUp, Wallet, Plus, Trash2, Calendar, FileText, Archive, RefreshCw, Download, FileSpreadsheet } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts';
 import { subscribeSummaries, runMaintenance } from '../services/firestore';
 
@@ -41,6 +41,39 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({ bookings, activiti
             setIsMaintenanceRunning(false);
             alert("Mantenimiento finalizado exitosamente.");
         }
+    };
+
+    // --- NUEVA FUNCIÓN: EXPORTAR A CSV ---
+    const handleExportCSV = () => {
+        if (bookings.length === 0) return alert("No hay reservas para exportar.");
+
+        const headers = ['ID Reserva', 'Fecha', 'Hora', 'Cancha', 'Cliente', 'Telefono', 'Precio', 'Estado', 'Metodo Pago', 'Fijo'];
+        
+        const csvRows = [
+            headers.join(','), // Encabezado
+            ...bookings.map(b => [
+                b.id,
+                b.date,
+                b.time,
+                b.courtId,
+                `"${b.customerName}"`, // Comillas para evitar errores si el nombre tiene comas
+                b.customerPhone || 'N/A',
+                b.price,
+                b.status,
+                b.paymentMethod || 'Sin Pago',
+                b.isRecurring ? 'Si' : 'No'
+            ].join(','))
+        ];
+
+        const csvString = csvRows.join('\n');
+        const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', `reservas_club_${new Date().toISOString().split('T')[0]}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
     };
 
     // 1. CALCULAR INGRESOS ACTUALES (Mes en curso / Datos vivos en ActivityLog)
@@ -129,23 +162,43 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({ bookings, activiti
                 </div>
             </div>
 
-            {/* --- SECCIÓN MANTENIMIENTO --- */}
-            <div className="bg-blue-900/20 border border-blue-500/30 p-4 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                    <div className="bg-blue-500/20 p-2 rounded-lg text-blue-400"><Archive size={24}/></div>
-                    <div>
-                        <h4 className="text-white font-bold text-sm">Optimización de Base de Datos</h4>
-                        <p className="text-slate-400 text-xs">Compacta registros antiguos (+15 días) en resúmenes mensuales para ahorrar espacio y mejorar velocidad.</p>
+            {/* --- BARRA DE HERRAMIENTAS (MANTENIMIENTO Y EXPORTACIÓN) --- */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Exportar */}
+                <div className="bg-green-900/20 border border-green-500/30 p-4 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                        <div className="bg-green-500/20 p-2 rounded-lg text-green-400"><FileSpreadsheet size={24}/></div>
+                        <div>
+                            <h4 className="text-white font-bold text-sm">Reporte de Reservas</h4>
+                            <p className="text-slate-400 text-xs">Descarga todas las reservas históricas en formato CSV (Excel).</p>
+                        </div>
                     </div>
+                    <button 
+                        onClick={handleExportCSV}
+                        className="bg-green-600 hover:bg-green-500 text-white px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2 transition-colors active:scale-95 whitespace-nowrap"
+                    >
+                        <Download size={16}/> Descargar CSV
+                    </button>
                 </div>
-                <button 
-                    onClick={handleRunMaintenance}
-                    disabled={isMaintenanceRunning}
-                    className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2 transition-colors disabled:opacity-50"
-                >
-                    <RefreshCw size={16} className={isMaintenanceRunning ? "animate-spin" : ""}/>
-                    {isMaintenanceRunning ? "Procesando..." : "Ejecutar Limpieza"}
-                </button>
+
+                {/* Mantenimiento */}
+                <div className="bg-blue-900/20 border border-blue-500/30 p-4 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                        <div className="bg-blue-500/20 p-2 rounded-lg text-blue-400"><Archive size={24}/></div>
+                        <div>
+                            <h4 className="text-white font-bold text-sm">Optimización DB</h4>
+                            <p className="text-slate-400 text-xs">Compacta registros viejos (+15 días) para mejorar velocidad.</p>
+                        </div>
+                    </div>
+                    <button 
+                        onClick={handleRunMaintenance}
+                        disabled={isMaintenanceRunning}
+                        className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2 transition-colors disabled:opacity-50 active:scale-95 whitespace-nowrap"
+                    >
+                        <RefreshCw size={16} className={isMaintenanceRunning ? "animate-spin" : ""}/>
+                        {isMaintenanceRunning ? "Procesando..." : "Limpiar"}
+                    </button>
+                </div>
             </div>
 
             {/* --- CONTENIDO PRINCIPAL --- */}
